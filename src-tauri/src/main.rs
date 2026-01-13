@@ -1,7 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{Manager, State, Window}; // Added Manager
+use tauri::{Manager, State, Window, Emitter}; // Added Emitter
+use std::process::Stdio;
+use tokio::io::{BufReader, AsyncBufReadExt};
+use tokio::process::Command;
 
 mod core;
 mod launcher;
@@ -179,7 +182,7 @@ async fn start_game(
     println!("Total download tasks (Client + Libs + Assets): {}", download_tasks.len());
     
     // 4. Start Download
-    core::downloader::download_files(window, download_tasks).await.map_err(|e| e.to_string())?;
+    core::downloader::download_files(window.clone(), download_tasks).await.map_err(|e| e.to_string())?;
 
     // 5. Extract Natives
     println!("Extracting natives...");
@@ -319,16 +322,35 @@ async fn start_game(
     println!("Launch Args: {:?}", args);
     
     // Spawn the process
-    let mut command = std::process::Command::new("java");
+    let mut command = Command::new("java");
     command.args(&args);
     command.current_dir(&game_dir); // Run in game directory
+    command.stdout(Stdio::piped());
+    command.stderr(Stdio::piped());
 
-    // We can just spawn it and let it detach, or keep track of it.
-    // For now, let's spawn and verify it started.
-    match command.spawn() {
-        Ok(_) => Ok(format!("Launched Minecraft {} successfully!", version_id)),
-        Err(e) => Err(format!("Failed to launch java: {}", e)),
-    }
+    // Spawn and handle output
+    let mut child = command.spawn().map_err(|e| format!("Failed to launch java: {}", e))?;
+    
+    let stdout = child.stdout.take().expect("child did not have a handle to stdout");
+    let stderr = child.stderr.take().expect("child did not have a handle to stderr");
+
+    let window_rx = window.clone();
+    tokio::spawn(async move {
+        let mut reader = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+             let _ = window_rx.emit("game-stdout", line);
+        }
+    });
+
+    let window_rx_err = window.clone();
+    tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+             let _ = window_rx_err.emit("game-stderr", line);
+        }
+    });
+
+    Ok(format!("Launched Minecraft {} successfully!", version_id))
 }
 
 #[tauri::command]
