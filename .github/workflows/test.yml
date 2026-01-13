@@ -2,9 +2,13 @@ name: Test & Build
 
 on:
   push:
-    branches: ["main", "master", "dev"]
+    branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "ui/**"
   pull_request:
-    branches: ["main", "master", "dev"]
+    branches: ["main"]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,7 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, windows-latest, macos-14]
+        # On Push: Linux only. On PR: All platforms.
+        platform: ${{ (github.event_name == 'pull_request') && fromJson('["ubuntu-22.04", "windows-latest", "macos-14"]') || fromJson('["ubuntu-22.04"]') }}
 
     steps:
       - uses: actions/checkout@v4
