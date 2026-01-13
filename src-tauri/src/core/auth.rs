@@ -82,7 +82,7 @@ pub fn generate_offline_uuid(username: &str) -> String {
 // --- Microsoft Auth Logic ---
 
 // Constants
-const CLIENT_ID: &str = "499546d9-bbfe-4b9b-a086-eb3d75afb78f";
+const CLIENT_ID: &str = "fe165602-5410-4441-92f7-326e10a7cb82";
 const SCOPE: &str = "XboxLive.Signin offline_access openid profile email";
 
 #[derive(Debug, Serialize, Deserialize)]

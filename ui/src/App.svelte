@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { open } from "@tauri-apps/plugin-shell";
   import { onMount } from "svelte";
   import DownloadMonitor from "./lib/DownloadMonitor.svelte";
   import GameConsole from "./lib/GameConsole.svelte";
@@ -143,6 +144,17 @@
     msLoginLoading = true;
     try {
       deviceCodeData = await invoke("start_microsoft_login") as DeviceCodeResponse;
+      
+      // UX Improvements: Auto Copy & Auto Open
+      if (deviceCodeData) {
+          try {
+              await navigator.clipboard.writeText(deviceCodeData.user_code);
+              // alert("Code copied to clipboard: " + deviceCodeData.user_code); 
+          } catch (e) { console.error("Clipboard failed", e); }
+          
+          openLink(deviceCodeData.verification_uri);
+      }
+
     } catch(e) {
         alert("Failed to start Microsoft login: " + e);
         loginMode = 'select'; // Go back
@@ -159,17 +171,14 @@
         isLoginModalOpen = false;
     } catch(e) {
         alert("Login failed: " + e + "\n\nMake sure you authorized the app in your browser.");
+        // If it fails, users often want to retry checking without restarting the flow
     } finally {
         msLoginLoading = false;
     }
   }
 
   function openLink(url: string) {
-      // Use tauri open if possible, or window.open
-      invoke('start_microsoft_login').catch(() => window.open(url, '_blank'));
-      // Wait, we invoke 'start_microsoft_login' above already. 
-      // Just use window.open for the verification URI
-      window.open(url, '_blank');
+      open(url);
   }
 
   async function startGame() {
