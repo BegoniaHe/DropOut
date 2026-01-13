@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::Stdio;
+use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, Window}; // Added Emitter
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -9,6 +10,19 @@ use tokio::process::Command;
 mod core;
 mod launcher;
 mod utils;
+
+// Global storage for MS refresh token (not in Account struct to keep it separate)
+pub struct MsRefreshTokenState {
+    pub token: Mutex<Option<String>>,
+}
+
+impl MsRefreshTokenState {
+    pub fn new() -> Self {
+        Self {
+            token: Mutex::new(None),
+        }
+    }
+}
 
 #[tauri::command]
 async fn start_game(
@@ -281,14 +295,28 @@ async fn start_game(
     let mut args = Vec::new();
     let natives_path = natives_dir.to_string_lossy().to_string();
 
-    // 7a. JVM Arguments (Simplified for now)
-    // We inject standard convenient defaults.
-    // TODO: Parse 'arguments.jvm' from version.json for full compatibility (Mac M1 support etc)
-    args.push(format!("-Djava.library.path={}", natives_path));
+    // 7a. JVM Arguments - Parse from version.json for full compatibility
+    // First add arguments from version.json if available
+    if let Some(args_obj) = &version_details.arguments {
+        if let Some(jvm_args) = &args_obj.jvm {
+            parse_jvm_arguments(jvm_args, &mut args, &natives_path, &classpath);
+        }
+    }
+    
+    // Add memory settings (these override any defaults)
     args.push(format!("-Xmx{}M", config.max_memory));
     args.push(format!("-Xms{}M", config.min_memory));
-    args.push("-cp".to_string());
-    args.push(classpath);
+    
+    // Ensure natives path is set if not already in jvm args
+    if !args.iter().any(|a| a.contains("-Djava.library.path")) {
+        args.push(format!("-Djava.library.path={}", natives_path));
+    }
+    
+    // Ensure classpath is set if not already
+    if !args.iter().any(|a| a == "-cp" || a == "-classpath") {
+        args.push("-cp".to_string());
+        args.push(classpath.clone());
+    }
 
     // 7b. Main Class
     args.push(version_details.main_class.clone());
@@ -419,6 +447,75 @@ async fn start_game(
     Ok(format!("Launched Minecraft {} successfully!", version_id))
 }
 
+/// Parse JVM arguments from version.json
+fn parse_jvm_arguments(
+    jvm_args: &serde_json::Value,
+    args: &mut Vec<String>,
+    natives_path: &str,
+    classpath: &str,
+) {
+    let mut replacements = std::collections::HashMap::new();
+    replacements.insert("${natives_directory}", natives_path.to_string());
+    replacements.insert("${classpath}", classpath.to_string());
+    replacements.insert("${launcher_name}", "DropOut".to_string());
+    replacements.insert("${launcher_version}", env!("CARGO_PKG_VERSION").to_string());
+
+    if let Some(list) = jvm_args.as_array() {
+        for item in list {
+            if let Some(s) = item.as_str() {
+                // Simple string argument
+                let mut arg = s.to_string();
+                for (key, val) in &replacements {
+                    arg = arg.replace(key, val);
+                }
+                // Skip memory args as we set them explicitly
+                if !arg.starts_with("-Xmx") && !arg.starts_with("-Xms") {
+                    args.push(arg);
+                }
+            } else if let Some(obj) = item.as_object() {
+                // Conditional argument with rules
+                let allow = if let Some(rules_val) = obj.get("rules") {
+                    if let Ok(rules) = serde_json::from_value::<Vec<core::game_version::Rule>>(
+                        rules_val.clone(),
+                    ) {
+                        core::rules::is_library_allowed(&Some(rules))
+                    } else {
+                        false
+                    }
+                } else {
+                    true
+                };
+
+                if allow {
+                    if let Some(val) = obj.get("value") {
+                        if let Some(s) = val.as_str() {
+                            let mut arg = s.to_string();
+                            for (key, replacement) in &replacements {
+                                arg = arg.replace(key, replacement);
+                            }
+                            if !arg.starts_with("-Xmx") && !arg.starts_with("-Xms") {
+                                args.push(arg);
+                            }
+                        } else if let Some(arr) = val.as_array() {
+                            for sub in arr {
+                                if let Some(s) = sub.as_str() {
+                                    let mut arg = s.to_string();
+                                    for (key, replacement) in &replacements {
+                                        arg = arg.replace(key, replacement);
+                                    }
+                                    if !arg.starts_with("-Xmx") && !arg.starts_with("-Xms") {
+                                        args.push(arg);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
 async fn get_versions() -> Result<Vec<core::manifest::Version>, String> {
     match core::manifest::fetch_version_manifest().await {
@@ -429,6 +526,7 @@ async fn get_versions() -> Result<Vec<core::manifest::Version>, String> {
 
 #[tauri::command]
 async fn login_offline(
+    window: Window,
     state: State<'_, core::auth::AccountState>,
     username: String,
 ) -> Result<core::auth::Account, String> {
@@ -436,6 +534,13 @@ async fn login_offline(
     let account = core::auth::Account::Offline(core::auth::OfflineAccount { username, uuid });
 
     *state.active_account.lock().unwrap() = Some(account.clone());
+    
+    // Save to storage
+    let app_handle = window.app_handle();
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let storage = core::account_storage::AccountStorage::new(app_dir);
+    storage.add_or_update_account(&account, None)?;
+    
     Ok(account)
 }
 
@@ -447,8 +552,23 @@ async fn get_active_account(
 }
 
 #[tauri::command]
-async fn logout(state: State<'_, core::auth::AccountState>) -> Result<(), String> {
+async fn logout(
+    window: Window,
+    state: State<'_, core::auth::AccountState>,
+) -> Result<(), String> {
+    // Get current account UUID before clearing
+    let uuid = state.active_account.lock().unwrap().as_ref().map(|a| a.uuid());
+    
     *state.active_account.lock().unwrap() = None;
+    
+    // Remove from storage
+    if let Some(uuid) = uuid {
+        let app_handle = window.app_handle();
+        let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+        let storage = core::account_storage::AccountStorage::new(app_dir);
+        storage.remove_account(&uuid)?;
+    }
+    
     Ok(())
 }
 
@@ -476,11 +596,17 @@ async fn start_microsoft_login() -> Result<core::auth::DeviceCodeResponse, Strin
 
 #[tauri::command]
 async fn complete_microsoft_login(
+    window: Window,
     state: State<'_, core::auth::AccountState>,
+    ms_refresh_state: State<'_, MsRefreshTokenState>,
     device_code: String,
 ) -> Result<core::auth::Account, String> {
     // 1. Poll (once) for token
     let token_resp = core::auth::exchange_code_for_token(&device_code).await?;
+    
+    // Store MS refresh token
+    let ms_refresh_token = token_resp.refresh_token.clone();
+    *ms_refresh_state.token.lock().unwrap() = ms_refresh_token.clone();
     
     // 2. Xbox Live Auth
     let (xbl_token, uhs) = core::auth::method_xbox_live(&token_resp.access_token).await?;
@@ -499,7 +625,7 @@ async fn complete_microsoft_login(
         username: profile.name,
         uuid: profile.id,
         access_token: mc_token, // This is the MC Access Token
-        refresh_token: token_resp.refresh_token,
+        refresh_token: token_resp.refresh_token.clone(),
         expires_at: (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -509,16 +635,88 @@ async fn complete_microsoft_login(
     // 7. Save to state
     *state.active_account.lock().unwrap() = Some(account.clone());
     
+    // 8. Save to storage
+    let app_handle = window.app_handle();
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let storage = core::account_storage::AccountStorage::new(app_dir);
+    storage.add_or_update_account(&account, ms_refresh_token)?;
+    
     Ok(account)
+}
+
+/// Refresh token for current Microsoft account
+#[tauri::command]
+async fn refresh_account(
+    window: Window,
+    state: State<'_, core::auth::AccountState>,
+    ms_refresh_state: State<'_, MsRefreshTokenState>,
+) -> Result<core::auth::Account, String> {
+    // Get stored MS refresh token
+    let app_handle = window.app_handle();
+    let app_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let storage = core::account_storage::AccountStorage::new(app_dir.clone());
+    
+    let (stored_account, ms_refresh) = storage
+        .get_active_account()
+        .ok_or("No active account found")?;
+    
+    let ms_refresh_token = ms_refresh.ok_or("No refresh token available")?;
+    
+    // Perform full refresh
+    let (new_account, new_ms_refresh) = core::auth::refresh_full_auth(&ms_refresh_token).await?;
+    let account = core::auth::Account::Microsoft(new_account);
+    
+    // Update state
+    *state.active_account.lock().unwrap() = Some(account.clone());
+    *ms_refresh_state.token.lock().unwrap() = Some(new_ms_refresh.clone());
+    
+    // Update storage
+    storage.add_or_update_account(&account, Some(new_ms_refresh))?;
+    
+    Ok(account)
+}
+
+/// Detect Java installations on the system
+#[tauri::command]
+async fn detect_java() -> Result<Vec<core::java::JavaInstallation>, String> {
+    Ok(core::java::detect_java_installations())
+}
+
+/// Get recommended Java for a specific Minecraft version
+#[tauri::command]
+async fn get_recommended_java(
+    required_major_version: Option<u64>,
+) -> Result<Option<core::java::JavaInstallation>, String> {
+    Ok(core::java::get_recommended_java(required_major_version))
 }
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(core::auth::AccountState::new())
+        .manage(MsRefreshTokenState::new())
         .setup(|app| {
             let config_state = core::config::ConfigState::new(app.handle());
             app.manage(config_state);
+            
+            // Load saved account on startup
+            let app_dir = app.path().app_data_dir().unwrap();
+            let storage = core::account_storage::AccountStorage::new(app_dir);
+            
+            if let Some((stored_account, ms_refresh)) = storage.get_active_account() {
+                let account = stored_account.to_account();
+                let auth_state: State<core::auth::AccountState> = app.state();
+                *auth_state.active_account.lock().unwrap() = Some(account);
+                
+                // Store MS refresh token
+                if let Some(token) = ms_refresh {
+                    let ms_state: State<MsRefreshTokenState> = app.state();
+                    *ms_state.token.lock().unwrap() = Some(token);
+                }
+                
+                println!("[Startup] Loaded saved account");
+            }
+            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -530,7 +728,10 @@ fn main() {
             get_settings,
             save_settings,
             start_microsoft_login,
-            complete_microsoft_login
+            complete_microsoft_login,
+            refresh_account,
+            detect_java,
+            get_recommended_java
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

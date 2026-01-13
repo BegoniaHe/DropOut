@@ -101,6 +101,89 @@ pub struct TokenError {
     pub error: String,
 }
 
+/// Refresh Microsoft OAuth token using refresh_token
+pub async fn refresh_microsoft_token(refresh_token: &str) -> Result<TokenResponse, String> {
+    let client = get_client();
+    let url = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+
+    let params = [
+        ("grant_type", "refresh_token"),
+        ("client_id", CLIENT_ID),
+        ("refresh_token", refresh_token),
+        ("scope", SCOPE),
+    ];
+
+    let resp = client
+        .post(url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(serde_urlencoded::to_string(&params).map_err(|e| e.to_string())?)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let text = resp.text().await.map_err(|e| e.to_string())?;
+
+    if let Ok(token_resp) = serde_json::from_str::<TokenResponse>(&text) {
+        println!("[Auth] Token refreshed successfully!");
+        return Ok(token_resp);
+    }
+
+    if let Ok(err_resp) = serde_json::from_str::<TokenError>(&text) {
+        println!("[Auth] Token refresh error: {}", err_resp.error);
+        return Err(format!("Token refresh failed: {}", err_resp.error));
+    }
+
+    Err(format!("Unknown refresh response: {}", text))
+}
+
+/// Check if a Microsoft account token is expired or about to expire
+pub fn is_token_expired(expires_at: i64) -> bool {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    
+    // Consider expired if less than 5 minutes remaining
+    expires_at - now < 300
+}
+
+/// Full refresh flow: refresh MS token -> Xbox -> XSTS -> Minecraft
+pub async fn refresh_full_auth(ms_refresh_token: &str) -> Result<(MicrosoftAccount, String), String> {
+    println!("[Auth] Starting full token refresh...");
+    
+    // 1. Refresh Microsoft token
+    let token_resp = refresh_microsoft_token(ms_refresh_token).await?;
+    
+    // 2. Xbox Live Auth
+    let (xbl_token, uhs) = method_xbox_live(&token_resp.access_token).await?;
+    
+    // 3. XSTS Auth
+    let xsts_token = method_xsts(&xbl_token).await?;
+    
+    // 4. Minecraft Auth
+    let mc_token = login_minecraft(&xsts_token, &uhs).await?;
+    
+    // 5. Get Profile
+    let profile = fetch_profile(&mc_token).await?;
+    
+    // 6. Create Account
+    let account = MicrosoftAccount {
+        username: profile.name,
+        uuid: profile.id,
+        access_token: mc_token,
+        refresh_token: token_resp.refresh_token.clone(),
+        expires_at: (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() + token_resp.expires_in) as i64,
+    };
+    
+    // Return new MS refresh token for storage
+    let new_ms_refresh = token_resp.refresh_token.unwrap_or_else(|| ms_refresh_token.to_string());
+    
+    Ok((account, new_ms_refresh))
+}
+
 // Xbox Live Auth
 #[derive(Debug, Serialize, Deserialize)]
 pub struct XboxLiveResponse {

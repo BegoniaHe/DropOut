@@ -38,6 +38,8 @@
     user_code: string;
     device_code: string;
     verification_uri: string;
+    expires_in: number;
+    interval: number;
     message?: string;
   }
 
@@ -47,6 +49,12 @@
     java_path: string;
     width: number;
     height: number;
+  }
+
+  interface JavaInstallation {
+    path: string;
+    version: string;
+    is_64bit: boolean;
   }
 
   let versions: Version[] = [];
@@ -59,6 +67,8 @@
     width: 854,
     height: 480,
   };
+  let javaInstallations: JavaInstallation[] = [];
+  let isDetectingJava = false;
 
   // Login UI State
   let isLoginModalOpen = false;
@@ -111,6 +121,27 @@
       console.error("Failed to save settings:", e);
       status = "Error saving settings: " + e;
     }
+  }
+
+  async function detectJava() {
+    isDetectingJava = true;
+    try {
+      javaInstallations = await invoke("detect_java");
+      if (javaInstallations.length === 0) {
+        status = "No Java installations found";
+      } else {
+        status = `Found ${javaInstallations.length} Java installation(s)`;
+      }
+    } catch (e) {
+      console.error("Failed to detect Java:", e);
+      status = "Error detecting Java: " + e;
+    } finally {
+      isDetectingJava = false;
+    }
+  }
+
+  function selectJava(path: string) {
+    settings.java_path = path;
   }
 
   // --- Auth Functions ---
@@ -422,9 +453,40 @@
                   class="bg-zinc-950 text-white flex-1 p-3 rounded border border-zinc-700 focus:border-indigo-500 outline-none font-mono text-sm"
                   placeholder="e.g. java, /usr/bin/java"
                 />
+                <button
+                  onclick={detectJava}
+                  disabled={isDetectingJava}
+                  class="bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white px-4 py-2 rounded transition-colors whitespace-nowrap"
+                >
+                  {isDetectingJava ? "Detecting..." : "Auto Detect"}
+                </button>
               </div>
+              
+              {#if javaInstallations.length > 0}
+                <div class="mt-4 space-y-2">
+                  <p class="text-xs text-zinc-400 uppercase font-bold">Detected Java Installations:</p>
+                  {#each javaInstallations as java}
+                    <button
+                      onclick={() => selectJava(java.path)}
+                      class="w-full text-left p-3 bg-zinc-950 rounded border transition-colors {settings.java_path === java.path ? 'border-indigo-500 bg-indigo-950/30' : 'border-zinc-700 hover:border-zinc-500'}"
+                    >
+                      <div class="flex justify-between items-center">
+                        <div>
+                          <span class="text-white font-mono text-sm">{java.version}</span>
+                          <span class="text-zinc-500 text-xs ml-2">{java.is_64bit ? "64-bit" : "32-bit"}</span>
+                        </div>
+                        {#if settings.java_path === java.path}
+                          <span class="text-indigo-400 text-xs">Selected</span>
+                        {/if}
+                      </div>
+                      <div class="text-zinc-500 text-xs font-mono truncate mt-1">{java.path}</div>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+              
               <p class="text-xs text-zinc-500 mt-2">
-                The command or path to the Java Runtime Environment.
+                The command or path to the Java Runtime Environment. Click "Auto Detect" to find installed Java versions.
               </p>
             </div>
 

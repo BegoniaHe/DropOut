@@ -23,6 +23,26 @@ DropOut is a modern, fast, and efficient Minecraft launcher built with the lates
 | **Windows** | x86_64                | Done   |
 | **Windows** | ARM64                 | Done   |
 
+## Roadmap
+
+- [x] **Account Persistence** — Save login state between sessions
+- [x] **Token Refresh** — Auto-refresh expired Microsoft tokens
+- [x] **JVM Arguments Parsing** — Parse `arguments.jvm` from version.json for Mac M1/ARM support
+- [x] **Java Auto-detection** — Scan common paths for Java installations
+
+- [ ] **Fabric Loader Support** — Install and launch with Fabric
+- [ ] **Forge Loader Support** — Install and launch with Forge
+- [ ] **Instance/Profile System** — Multiple isolated game directories with different versions/mods
+- [ ] **Version Filtering** — Filter by release/snapshot/old_beta in UI
+- [ ] **Multi-account Support** — Switch between multiple accounts
+- [ ] **Custom Game Directory** — Allow users to choose game files location
+
+- [ ] **Launcher Auto-updater** — Self-update mechanism via Tauri updater plugin
+- [ ] **Mods Manager** — Enable/disable mods without deletion
+- [ ] **Resource Packs Manager** — Browse and manage resource packs
+- [ ] **Quilt Loader Support** — Install and launch with Quilt
+- [ ] **Import from Other Launchers** — Migration tool for MultiMC/Prism profiles
+
 ## Installation
 
 Download the latest release for your platform from the [Releases](https://github.com/HsiangNianian/DropOut/releases) page.
