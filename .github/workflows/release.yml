@@ -18,16 +18,29 @@ permissions:
   contents: write
 
 jobs:
-  build-linux:
+  linux:
     name: Linux (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
             deb_arch: amd64
             rpm_arch: x86_64
+          - runner: ubuntu-22.04
+            target: i686-unknown-linux-gnu
+            deb_arch: i386
+            rpm_arch: i686
+          - runner: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            deb_arch: arm64
+            rpm_arch: aarch64
+          - runner: ubuntu-22.04
+            target: armv7-unknown-linux-gnueabihf
+            deb_arch: armhf
+            rpm_arch: armv7hl
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +62,7 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Build Deb
+        # cargo-deb needs the binary to be built first.
         run: cargo deb --no-build --target ${{ matrix.target }} --output dropout-linux-${{ matrix.deb_arch }}.deb
 
       - name: Build RPM (via Alien)
@@ -73,25 +87,19 @@ jobs:
             dropout-linux-${{ matrix.rpm_arch }}.rpm
             dropout-linux-${{ matrix.rpm_arch }}.tar.gz
 
-  build-macos:
-    name: MacOS (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
+  macos:
+    name: macOS (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-apple-darwin
+          - runner: macos-13
+            target: x86_64-apple-darwin
             arch_name: x86_64
-            os: macos-14
-          - target: aarch64-apple-darwin
+          - runner: macos-14
+            target: aarch64-apple-darwin
             arch_name: aarch64
-            os: macos-14
-          - target: x86_64-apple-darwin
-            arch_name: x86_64
-            os: macos-latest
-          - target: aarch64-apple-darwin
-            arch_name: aarch64
-            os: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -106,8 +114,6 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build
-        # We allow cross in case pkg-config gets confused by the explicit target triple on native host,
-        # but since we are on the correct hardware, the brew libraries will be correct.
         env: 
           PKG_CONFIG_ALLOW_CROSS: 1
         run: cargo build --release --target ${{ matrix.target }}
@@ -116,6 +122,7 @@ jobs:
         run: |
           cd target/${{ matrix.target }}/release
           tar -czf ../../../dropout-macos-${{ matrix.arch_name }}.tar.gz dropout
+          cd ../../..
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -123,7 +130,45 @@ jobs:
           name: macos-artifacts-${{ matrix.target }}
           path: dropout-macos-${{ matrix.arch_name }}.tar.gz
 
-  build-windows:
+
+  musllinux:
+    name: Musl Linux (${{ matrix.target }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            rpm_arch: x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          
+      - name: Install Cross
+        run: cargo install cross
+        
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Archive Binary
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../dropout-musllinux-${{ matrix.rpm_arch }}.tar.gz dropout
+          cd ../../..
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: musllinux-artifacts-${{ matrix.target }}
+          path: dropout-musllinux-${{ matrix.rpm_arch }}.tar.gz
+
+
+  windows:
     name: Windows (${{ matrix.target }})
     runs-on: windows-latest
     strategy:
@@ -131,7 +176,10 @@ jobs:
       matrix:
         include:
           - target: x86_64-pc-windows-msvc
-            arch_name: x86_64
+            arch_name: x64
+          - target: i686-pc-windows-msvc
+            arch_name: x86
+
     steps:
       - uses: actions/checkout@v4
 
@@ -162,7 +210,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-linux, build-macos, build-windows]
+    needs: [linux, macos, musllinux, windows]
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || github.event_name == 'workflow_dispatch'
 
