@@ -6,6 +6,16 @@
 
   let status = "Ready";
   let showConsole = false;
+  let currentView = 'home';
+  let statusTimeout: any;
+
+  // Watch for status changes to auto-dismiss
+  $: if (status !== "Ready") {
+    if (statusTimeout) clearTimeout(statusTimeout);
+    statusTimeout = setTimeout(() => {
+        status = "Ready";
+    }, 5000);
+  }
 
   interface Version {
       id: string;
@@ -106,16 +116,24 @@
     </div>
     
     <nav class="flex-1 w-full flex flex-col gap-2 p-3">
-      <button class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 bg-zinc-800/50 text-zinc-100 transition-all relative">
+      <button 
+        class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 {currentView === 'home' ? 'bg-zinc-800/80 text-white' : 'text-zinc-400'} transition-all relative"
+        onclick={() => currentView = 'home'}
+      >
         <span class="text-xl relative z-10">🏠</span>
         <span class="hidden lg:block font-medium relative z-10 transition-opacity">Home</span>
-        <!-- Tooltip for small screen (optional, simple css approach) -->
       </button>
-      <button class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-all">
+      <button 
+        class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 {currentView === 'versions' ? 'bg-zinc-800/80 text-white' : 'text-zinc-400'} transition-all"
+        onclick={() => currentView = 'versions'}
+      >
         <span class="text-xl">📦</span>
         <span class="hidden lg:block font-medium">Versions</span>
       </button>
-      <button class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-all">
+      <button 
+        class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 {currentView === 'settings' ? 'bg-zinc-800/80 text-white' : 'text-zinc-400'} transition-all"
+        onclick={() => currentView = 'settings'}
+      >
         <span class="text-xl">⚙️</span>
         <span class="hidden lg:block font-medium">Settings</span>
       </button>
@@ -135,7 +153,8 @@
     </div>
 
     <!-- Background / Poster area -->
-    <div class="flex-1 bg-gradient-to-br from-zinc-800 to-black relative overflow-hidden group">
+    <div class="flex-1 relative overflow-hidden group">
+      {#if currentView === 'home'}
         <!-- Background Image -->
         <div class="absolute inset-0 z-0 opacity-40 bg-[url('https://www.minecraft.net/content/dam/games/minecraft/key-art/Minecraft-KeyArt-02_800x450.jpg')] bg-cover bg-center transition-transform duration-[10s] ease-linear group-hover:scale-105"></div>
         <div class="absolute inset-0 z-0 bg-gradient-to-t from-zinc-900 via-transparent to-black/50"></div>
@@ -147,6 +166,36 @@
                 <span class="text-lg">Release 1.20.4</span>
             </div>
         </div>
+      {:else if currentView === 'versions'}
+        <div class="p-8 h-full overflow-y-auto bg-zinc-900">
+            <h2 class="text-3xl font-bold mb-6">Versions</h2>
+            <div class="grid gap-2">
+                {#if versions.length === 0}
+                    <div class="text-zinc-500">Loading versions...</div>
+                {:else}
+                    {#each versions as version}
+                        <button 
+                            class="flex items-center justify-between p-4 bg-zinc-800 rounded hover:bg-zinc-700 transition text-left border border-zinc-700 {selectedVersion === version.id ? 'border-green-500 bg-zinc-800/80 ring-1 ring-green-500' : ''}"
+                            onclick={() => selectedVersion = version.id}
+                        >
+                            <div>
+                                <div class="font-bold font-mono text-lg">{version.id}</div>
+                                <div class="text-xs text-zinc-400 capitalize">{version.type} • {new Date(version.releaseTime).toLocaleDateString()}</div>
+                            </div>
+                            {#if selectedVersion === version.id}
+                                <div class="text-green-500 font-bold text-sm">SELECTED</div>
+                            {/if}
+                        </button>
+                    {/each}
+                {/if}
+            </div>
+        </div>
+      {:else if currentView === 'settings'}
+        <div class="p-8 bg-zinc-900 h-full">
+            <h2 class="text-3xl font-bold mb-6">Settings</h2>
+            <div class="text-zinc-400">Settings page coming soon...</div>
+        </div>
+      {/if}
     </div>
 
     <!-- Bottom Bar -->
@@ -200,11 +249,29 @@
 
   <!-- Overlay Status (Toast) -->
   {#if status !== "Ready"}
-  <div class="absolute top-12 right-12 bg-zinc-800/90 backdrop-blur border border-zinc-600 p-4 rounded-lg shadow-2xl max-w-sm animate-in fade-in slide-in-from-top-4 duration-300">
-      <div class="text-xs text-zinc-400 uppercase font-bold mb-1">Status</div>
-      <div class="font-mono text-sm whitespace-pre-wrap">{status}</div>
+  <div class="absolute top-12 right-12 bg-zinc-800/90 backdrop-blur border border-zinc-600 p-4 rounded-lg shadow-2xl max-w-sm animate-in fade-in slide-in-from-top-4 duration-300 z-50 group">
+      <div class="flex justify-between items-start mb-1">
+          <div class="text-xs text-zinc-400 uppercase font-bold">Status</div>
+          <button 
+            onclick={() => status = "Ready"}
+            class="text-zinc-500 hover:text-white transition -mt-1 -mr-1 p-1"
+          >
+            ✕
+          </button>
+      </div>
+      <div class="font-mono text-sm whitespace-pre-wrap mb-2">{status}</div>
+      <div class="w-full bg-zinc-700/50 h-1 rounded-full overflow-hidden">
+          <div class="h-full bg-indigo-500 animate-[progress_5s_linear_forwards] origin-left w-full"></div>
+      </div>
   </div>
   {/if}
+
+  <style>
+      @keyframes progress {
+          from { transform: scaleX(1); }
+          to { transform: scaleX(0); }
+      }
+  </style>
 
   <GameConsole visible={showConsole} />
 </div>
