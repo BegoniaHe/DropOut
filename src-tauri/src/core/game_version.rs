@@ -56,9 +56,9 @@ pub struct Rule {
 
 #[derive(Debug, Deserialize)]
 pub struct OsRule {
-    pub name: Option<String>, // "linux", "osx", "windows"
+    pub name: Option<String>,    // "linux", "osx", "windows"
     pub version: Option<String>, // Regex
-    pub arch: Option<String>, // "x86"
+    pub arch: Option<String>,    // "x86"
 }
 
 #[derive(Debug, Deserialize)]

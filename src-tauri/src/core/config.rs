@@ -34,7 +34,7 @@ impl ConfigState {
     pub fn new(app_handle: &AppHandle) -> Self {
         let app_dir = app_handle.path().app_data_dir().unwrap();
         let config_path = app_dir.join("config.json");
-        
+
         let config = if config_path.exists() {
             let content = fs::read_to_string(&config_path).unwrap_or_default();
             serde_json::from_str(&content).unwrap_or_default()

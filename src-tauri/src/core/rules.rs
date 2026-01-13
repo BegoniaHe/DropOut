@@ -11,7 +11,7 @@ pub fn is_library_allowed(rules: &Option<Vec<Rule>>) -> bool {
         return true;
     }
 
-    // Default depends on the first rule theoretically, but usually "allow" if no "disallow" matches? 
+    // Default depends on the first rule theoretically, but usually "allow" if no "disallow" matches?
     // Actually MC logic: implicit disallow? No, implicit allow usually?
     // Official launcher Rule logic:
     // "Libraries are allowed unless restricted by a rule."
@@ -24,23 +24,23 @@ pub fn is_library_allowed(rules: &Option<Vec<Rule>>) -> bool {
     // This implies base allowed, but OS X disallowed.
     // Pattern 2: [ {action: allow, os: "osx"} ]
     // This implies ONLY osx allowed?
-    
+
     // Correct logic:
     // If rules are present, start with result = false (deny all).
     // Loop through rules. If a rule applies (os matches), update result to (action == "allow").
     // Wait, let's verify.
     // If the list is [ {action: allow} ], result becomes true.
-    // If list is [ {action: allow}, {action: disallow, os: "osx"} ]. 
+    // If list is [ {action: allow}, {action: disallow, os: "osx"} ].
     // On Linux: Rule 1 matches -> true. Rule 2 (osx) doesn't match -> ignore. Final: true.
     // On OSX: Rule 1 matches -> true. Rule 2 matches -> false. Final: false.
-    
+
     // So: Start false. Apply rules in order.
-    
+
     let mut allowed = false;
 
     for rule in rules {
         if rule_matches(rule) {
-             allowed = (rule.action == "allow");
+            allowed = rule.action == "allow";
         }
     }
     allowed
@@ -60,7 +60,7 @@ fn rule_matches(rule: &Rule) -> bool {
             } else {
                 // OS rule exists but name is None? Maybe checking version/arch only.
                 // For simplicity, mostly name is used.
-                true 
+                true
             }
         }
     }
