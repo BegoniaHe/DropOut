@@ -1,5 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <!-- Background -->
     <rect width="100%" height="100%" fill="#23272a"/>
-    <path d="M50 400 L256 400 L462 100" stroke="#43b581" stroke-width="20" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="256" cy="400" r="10" fill="#7289da"/>
+
+    <!-- Grid Pattern -->
+    <defs>
+        <pattern id="smallGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#33363b" stroke-width="2"/>
+        </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#smallGrid)" />
+
+    <!-- Axes -->
+    <!-- X Axis -->
+    <line x1="20" y1="400" x2="492" y2="400" stroke="#72767d" stroke-width="6" stroke-linecap="round"/>
+    <!-- Y Axis -->
+    <line x1="256" y1="20" x2="256" y2="492" stroke="#72767d" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- ReLU Function Graph -->
+    <!-- Flat part (x < 0) -->
+    <!-- Rising part (x > 0) -->
+    <path d="M 20 400 L 256 400 L 462 100" stroke="#43b581" stroke-width="24" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Origin Dot (Hinge) -->
+    <circle cx="256" cy="400" r="16" fill="#7289da" stroke="#23272a" stroke-width="4"/>
 </svg>
