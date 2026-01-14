@@ -98,12 +98,19 @@
           }
         }
 
-        // Estimate remaining time based on files remaining
+        // Estimate remaining time
         if (downloadSpeed > 0 && completedFiles < totalFiles) {
-          // Rough estimate: assume average file size based on downloaded data
-          const avgBytesPerFile = completedFiles > 0 ? totalDownloadedBytes / completedFiles : totalDownloadedBytes;
           const remainingFiles = totalFiles - completedFiles;
-          const estimatedRemainingBytes = avgBytesPerFile * remainingFiles;
+          let estimatedRemainingBytes: number;
+
+          if (completedFiles > 0) {
+            // Use average size of completed files to estimate remaining files
+            const avgBytesPerCompletedFile = totalDownloadedBytes / completedFiles;
+            estimatedRemainingBytes = avgBytesPerCompletedFile * remainingFiles;
+          } else {
+            // No completed files yet: estimate based only on current file's remaining bytes
+            estimatedRemainingBytes = Math.max(totalBytes - downloadedBytes, 0);
+          }
           etaSeconds = estimatedRemainingBytes / downloadSpeed;
         } else {
           etaSeconds = 0;
