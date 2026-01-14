@@ -73,15 +73,15 @@
   function getVersionBadge(type: string) {
     switch (type) {
       case "release":
-        return { text: "Release", class: "bg-green-600" };
+        return { text: "Release", class: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
       case "snapshot":
-        return { text: "Snapshot", class: "bg-yellow-600" };
+        return { text: "Snapshot", class: "bg-amber-500/20 text-amber-300 border-amber-500/30" };
       case "fabric":
-        return { text: "Fabric", class: "bg-blue-600" };
+        return { text: "Fabric", class: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30" };
       case "forge":
-        return { text: "Forge", class: "bg-orange-600" };
+        return { text: "Forge", class: "bg-orange-500/20 text-orange-300 border-orange-500/30" };
       default:
-        return { text: type, class: "bg-zinc-600" };
+        return { text: type, class: "bg-zinc-500/20 text-zinc-300 border-zinc-500/30" };
     }
   }
 
@@ -114,101 +114,92 @@
   });
 </script>
 
-<div class="p-8 h-full overflow-y-auto bg-zinc-900">
-  <h2 class="text-3xl font-bold mb-6">Versions</h2>
+<div class="h-full flex flex-col p-6 overflow-hidden">
+  <div class="flex items-center justify-between mb-6">
+     <h2 class="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">Version Manager</h2>
+     <div class="text-sm text-white/40">Select a version to play or modify</div>
+  </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
     <!-- Left: Version List -->
-    <div class="lg:col-span-2 space-y-4">
-      <!-- Search and Filters -->
+    <div class="lg:col-span-2 flex flex-col gap-4 overflow-hidden">
+      <!-- Search and Filters (Glass Bar) -->
       <div class="flex gap-3">
-        <input
-          type="text"
-          placeholder="Search versions..."
-          class="flex-1 p-3 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:border-green-500 transition-colors"
-          bind:value={searchQuery}
-        />
+        <div class="relative flex-1">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30">🔍</span>
+            <input
+              type="text"
+              placeholder="Search versions..."
+              class="w-full pl-9 pr-4 py-3 bg-black/20 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-indigo-500/50 focus:bg-black/40 transition-all backdrop-blur-sm"
+              bind:value={searchQuery}
+            />
+        </div>
       </div>
 
-      <!-- Type Filter Tabs -->
-      <div class="flex gap-1 bg-zinc-800 rounded-lg p-1">
-        <button
-          class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {typeFilter ===
-          'all'
-            ? 'bg-zinc-700 text-white'
-            : 'text-zinc-400 hover:text-white'}"
-          onclick={() => (typeFilter = "all")}
-        >
-          All
-        </button>
-        <button
-          class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {typeFilter ===
-          'release'
-            ? 'bg-green-600 text-white'
-            : 'text-zinc-400 hover:text-white'}"
-          onclick={() => (typeFilter = "release")}
-        >
-          Releases
-        </button>
-        <button
-          class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {typeFilter ===
-          'snapshot'
-            ? 'bg-yellow-600 text-white'
-            : 'text-zinc-400 hover:text-white'}"
-          onclick={() => (typeFilter = "snapshot")}
-        >
-          Snapshots
-        </button>
-        <button
-          class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {typeFilter ===
-          'modded'
-            ? 'bg-purple-600 text-white'
-            : 'text-zinc-400 hover:text-white'}"
-          onclick={() => (typeFilter = "modded")}
-        >
-          Modded
-        </button>
+      <!-- Type Filter Tabs (Glass Caps) -->
+      <div class="flex p-1 bg-black/20 rounded-xl border border-white/5">
+        {#each ['all', 'release', 'snapshot', 'modded'] as filter}
+            <button
+            class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 capitalize
+            {typeFilter === filter
+                ? 'bg-white/10 text-white shadow-lg border border-white/10'
+                : 'text-white/40 hover:text-white hover:bg-white/5'}"
+            onclick={() => (typeFilter = filter as any)}
+            >
+            {filter}
+            </button>
+        {/each}
       </div>
 
-      <!-- Version List -->
-      <div class="grid gap-2 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
+      <!-- Version List SCROLL -->
+      <div class="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
         {#if gameState.versions.length === 0}
-          <div class="text-zinc-500">Loading versions...</div>
+          <div class="flex items-center justify-center h-40 text-white/30 italic animate-pulse">
+             Fetching manifest...
+          </div>
         {:else if filteredVersions().length === 0}
-          <div class="text-zinc-500">
-            {#if normalizedQuery.length > 0}
-              No versions found matching "{searchQuery}"
-            {:else}
-              No versions in this category
-            {/if}
+          <div class="flex flex-col items-center justify-center -40 text-white/30 gap-2">
+             <span class="text-2xl">👻</span>
+             <span>No matching versions found</span>
           </div>
         {:else}
           {#each filteredVersions() as version}
             {@const badge = getVersionBadge(version.type)}
+            {@const isSelected = gameState.selectedVersion === version.id}
             <button
-              class="flex items-center justify-between p-4 bg-zinc-800 rounded hover:bg-zinc-700 transition text-left border border-zinc-700 {gameState.selectedVersion ===
-              version.id
-                ? 'border-green-500 bg-zinc-800/80 ring-1 ring-green-500'
-                : ''}"
+              class="w-full group flex items-center justify-between p-4 rounded-xl text-left border transition-all duration-200 relative overflow-hidden
+              {isSelected
+                ? 'bg-indigo-600/20 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.2)]'
+                : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10 hover:translate-x-1'}"
               onclick={() => (gameState.selectedVersion = version.id)}
             >
-              <div class="flex items-center gap-3">
+              <!-- Selection Glow -->
+              {#if isSelected}
+                 <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent pointer-events-none"></div>
+              {/if}
+
+              <div class="relative z-10 flex items-center gap-4">
                 <span
-                  class="px-2 py-0.5 rounded text-xs font-medium {badge.class}"
+                  class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border {badge.class}"
                 >
                   {badge.text}
                 </span>
                 <div>
-                  <div class="font-bold font-mono">{version.id}</div>
+                  <div class="font-bold font-mono text-lg tracking-tight {isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'}">
+                    {version.id}
+                  </div>
                   {#if version.releaseTime && version.type !== "fabric" && version.type !== "forge"}
-                    <div class="text-xs text-zinc-400">
+                    <div class="text-xs text-white/30">
                       {new Date(version.releaseTime).toLocaleDateString()}
                     </div>
                   {/if}
                 </div>
               </div>
-              {#if gameState.selectedVersion === version.id}
-                <div class="text-green-500 font-bold text-sm">SELECTED</div>
+              
+              {#if isSelected}
+                <div class="relative z-10 text-indigo-400">
+                   <span class="text-lg">Selected</span>
+                </div>
               {/if}
             </button>
           {/each}
@@ -217,32 +208,29 @@
     </div>
 
     <!-- Right: Mod Loader Panel -->
-    <div class="space-y-4">
-      <!-- Selected Version Info -->
-      {#if gameState.selectedVersion}
-        <div class="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-          <h3 class="text-sm font-semibold text-zinc-400 mb-2">Selected</h3>
-          <p class="font-mono text-lg text-green-400">
-            {gameState.selectedVersion}
-          </p>
-        </div>
-      {/if}
-
-      <!-- Mod Loader Selector -->
-      <ModLoaderSelector
-        selectedGameVersion={selectedBaseVersion()}
-        onInstall={handleModLoaderInstall}
-      />
-
-      <!-- Help Text -->
-      <div class="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700/50">
-        <h4 class="text-sm font-semibold text-zinc-400 mb-2">💡 Tip</h4>
-        <p class="text-xs text-zinc-500">
-          Select a vanilla Minecraft version, then use the Mod Loader panel to
-          install Fabric or Forge. Installed modded versions will appear in the
-          list with colored badges.
-        </p>
+    <div class="flex flex-col gap-4">
+      <!-- Selected Version Info Card -->
+      <div class="bg-gradient-to-br from-white/10 to-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur-md relative overflow-hidden group">
+          <div class="absolute top-0 right-0 p-8 bg-indigo-500/20 blur-[60px] rounded-full group-hover:bg-indigo-500/30 transition-colors"></div>
+          
+          <h3 class="text-xs font-bold uppercase tracking-widest text-white/40 mb-2 relative z-10">Current Selection</h3>
+          {#if gameState.selectedVersion}
+            <p class="font-mono text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70 relative z-10 truncate">
+                {gameState.selectedVersion}
+            </p>
+          {:else}
+            <p class="text-white/20 italic relative z-10">None selected</p>
+          {/if}
       </div>
+
+      <!-- Mod Loader Selector Card -->
+      <div class="bg-black/20 p-4 rounded-2xl border border-white/5 backdrop-blur-sm flex-1 flex flex-col">
+          <ModLoaderSelector
+            selectedGameVersion={selectedBaseVersion()}
+            onInstall={handleModLoaderInstall}
+          />
+      </div>
+
     </div>
   </div>
 </div>

@@ -1004,6 +1004,7 @@ async fn install_forge(
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(core::auth::AccountState::new())
         .manage(MsRefreshTokenState::new())

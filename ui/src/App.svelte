@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
+  import { convertFileSrc } from "@tauri-apps/api/core";
   import DownloadMonitor from "./lib/DownloadMonitor.svelte";
   import GameConsole from "./lib/GameConsole.svelte";
   
@@ -12,6 +13,7 @@
   import BottomBar from "./components/BottomBar.svelte";
   import LoginModal from "./components/LoginModal.svelte";
   import StatusToast from "./components/StatusToast.svelte";
+  import ParticleBackground from "./components/ParticleBackground.svelte";
 
   // Stores
   import { uiState } from "./stores/ui.svelte";
@@ -19,46 +21,139 @@
   import { settingsState } from "./stores/settings.svelte";
   import { gameState } from "./stores/game.svelte";
 
+  let mouseX = $state(0);
+  let mouseY = $state(0);
+
+  function handleMouseMove(e: MouseEvent) {
+    mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseY = (e.clientY / window.innerHeight) * 2 - 1;
+  }
+
   onMount(async () => {
     authState.checkAccount();
     settingsState.loadSettings();
     gameState.loadVersions();
     getVersion().then((v) => (uiState.appVersion = v));
+    window.addEventListener("mousemove", handleMouseMove);
+  });
+  
+  onDestroy(() => {
+    if (typeof window !== 'undefined')
+      window.removeEventListener("mousemove", handleMouseMove);
   });
 </script>
 
 <div
-  class="flex h-screen bg-zinc-900 text-white font-sans overflow-hidden select-none"
+  class="relative h-screen w-screen overflow-hidden text-white font-sans selection:bg-indigo-500/30"
 >
-  <Sidebar />
+  <!-- Modern Animated Background -->
+  <div class="absolute inset-0 z-0 bg-[#09090b] overflow-hidden">
+    {#if settingsState.settings.custom_background_path}
+      <img
+        src={convertFileSrc(settingsState.settings.custom_background_path)}
+        alt="Background"
+        class="absolute inset-0 w-full h-full object-cover transition-transform duration-[20s] ease-linear hover:scale-105"
+      />
+      <!-- Dimming Overlay for readability -->
+      <div class="absolute inset-0 bg-black/50 "></div>
+    {:else if settingsState.settings.enable_visual_effects}
+      <!-- Original Gradient -->
+      <div 
+        class="absolute inset-0 opacity-60 bg-gradient-to-br from-emerald-900 via-zinc-900 to-indigo-950"
+      ></div>
 
-  <!-- Main Content -->
-  <main class="flex-1 flex flex-col relative min-w-0">
-    <DownloadMonitor />
-    <!-- Top Bar (Window Controls Placeholder) -->
-    <div
-      class="h-8 w-full bg-zinc-900/50 absolute top-0 left-0 z-50 drag-region"
-      data-tauri-drag-region
-    >
-      <!-- Windows/macOS controls would go here or be handled by OS -->
-    </div>
-
-    <!-- Background / Poster area -->
-    <div class="flex-1 relative overflow-hidden group">
       {#if uiState.currentView === "home"}
-        <HomeView />
-      {:else if uiState.currentView === "versions"}
-        <VersionsView />
-      {:else if uiState.currentView === "settings"}
-        <SettingsView />
+        <ParticleBackground />
       {/if}
-    </div>
 
-    <BottomBar />
-  </main>
+      <div 
+        class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-black/50"
+      ></div>
+    {/if}
+    
+    <!-- Subtle Grid Overlay -->
+    <div class="absolute inset-0 z-0 opacity-10 pointer-events-none" 
+         style="background-image: linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 70%);">
+    </div>
+  </div>
+
+  <!-- Content Wrapper -->
+  <div class="relative z-10 flex h-full p-4 gap-4">
+    <!-- Floating Sidebar -->
+    <Sidebar />
+
+    <!-- Main Content Area - Transparent & Flat -->
+    <main class="flex-1 flex flex-col relative min-w-0 overflow-hidden transition-all duration-300">
+      
+      <!-- Window Drag Region -->
+      <div
+        class="h-8 w-full absolute top-0 left-0 z-50 drag-region"
+        data-tauri-drag-region
+      ></div>
+
+      <!-- App Content -->
+      <div class="flex-1 relative overflow-hidden flex flex-col">
+          <!-- Views Container -->
+          <div class="flex-1 relative overflow-hidden">
+             {#if uiState.currentView === "home"}
+               <HomeView mouseX={mouseX} mouseY={mouseY} />
+             {:else if uiState.currentView === "versions"}
+               <VersionsView />
+             {:else if uiState.currentView === "settings"}
+               <SettingsView />
+             {/if}
+          </div>
+          
+          <!-- Download Monitor Overlay -->
+          <div class="absolute bottom-20 left-4 right-4 pointer-events-none z-20">
+             <div class="pointer-events-auto">
+                 <DownloadMonitor />
+             </div>
+          </div>
+          
+          <!-- Bottom Bar -->
+          <BottomBar />
+      </div>
+    </main>
+  </div>
 
   <LoginModal />
   <StatusToast />
-
-  <GameConsole visible={uiState.showConsole} />
+  
+  {#if uiState.showConsole}
+     <!-- Assuming GameConsole handles its own display mode or overlay -->
+    <div class="fixed inset-0 z-[100] bg-black/80  flex items-center justify-center p-10">
+        <div class="w-full h-full bg-[#1e1e1e] rounded-xl overflow-hidden border border-white/10 shadow-2xl relative">
+            <button class="absolute top-4 right-4 text-white hover:text-red-400 z-10" onclick={() => uiState.toggleConsole()}>✕</button>
+            <GameConsole />
+        </div>
+    </div>
+  {/if}
 </div>
+
+<style>
+  :global(body) {
+    margin: 0;
+    padding: 0;
+    background: #000;
+  }
+  
+  /* Modern Scrollbar */
+  :global(*::-webkit-scrollbar) {
+    width: 6px;
+    height: 6px;
+  }
+  
+  :global(*::-webkit-scrollbar-track) {
+    background: transparent;
+  }
+  
+  :global(*::-webkit-scrollbar-thumb) {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+  }
+  
+  :global(*::-webkit-scrollbar-thumb:hover) {
+    background: rgba(255, 255, 255, 0.25);
+  }
+</style>

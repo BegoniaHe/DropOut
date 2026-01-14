@@ -75,7 +75,7 @@
 </script>
 
 {#if visible}
-<div class="fixed bottom-0 left-0 right-0 h-64 bg-zinc-950/95 border-t border-zinc-700 backdrop-blur flex flex-col z-50 transition-transform duration-300 transform translate-y-0">
+<div class="fixed bottom-0 left-0 right-0 h-64 bg-zinc-950/95 border-t border-zinc-700  flex flex-col z-50 transition-transform duration-300 transform translate-y-0">
   <div class="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/50">
     <div class="flex items-center gap-4">
       <span class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Logs</span>

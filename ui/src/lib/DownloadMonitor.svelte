@@ -156,7 +156,7 @@
 
 {#if visible}
   <div
-    class="fixed bottom-28 right-8 z-50 w-80 bg-zinc-900/90 backdrop-blur-md border border-zinc-700 rounded-lg shadow-2xl p-4 animate-in slide-in-from-right-10 fade-in duration-300"
+    class="fixed bottom-28 right-8 z-50 w-80 bg-zinc-900/90  border border-zinc-700 rounded-lg shadow-2xl p-4 animate-in slide-in-from-right-10 fade-in duration-300"
   >
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-white font-bold text-sm">Downloads</h3>

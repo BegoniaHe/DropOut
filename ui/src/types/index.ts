@@ -30,6 +30,10 @@ export interface LauncherConfig {
   width: number;
   height: number;
   download_threads: number;
+  custom_background_path?: string;
+  enable_gpu_acceleration: boolean;
+  enable_visual_effects: boolean;
+  active_effect: string;
 }
 
 export interface JavaInstallation {

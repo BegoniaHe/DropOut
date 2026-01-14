@@ -112,134 +112,134 @@
   }
 </script>
 
-<div class="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-  <h3 class="text-sm font-semibold text-zinc-400 mb-3">Mod Loader</h3>
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+      <h3 class="text-xs font-bold uppercase tracking-widest text-white/40">Select Mod Loader</h3>
+  </div>
 
-  <!-- Loader Type Tabs -->
-  <div class="flex gap-1 mb-4 bg-zinc-900 rounded-lg p-1">
+  <!-- Loader Type Tabs - Segmented Control -->
+  <div class="flex p-1 bg-black/40 rounded-xl border border-white/5 backdrop-blur-sm">
     <button
-      class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {selectedLoader ===
-      'vanilla'
-        ? 'bg-zinc-700 text-white'
-        : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}"
+      class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+      {selectedLoader === 'vanilla'
+        ? 'bg-white/10 text-white shadow-lg border border-white/10'
+        : 'text-zinc-500 hover:text-white hover:bg-white/5'}"
       onclick={() => onLoaderChange("vanilla")}
     >
       Vanilla
     </button>
     <button
-      class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {selectedLoader ===
-      'fabric'
-        ? 'bg-blue-600 text-white'
-        : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}"
+      class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+      {selectedLoader === 'fabric'
+        ? 'bg-indigo-500/20 text-indigo-300 shadow-lg border border-indigo-500/20'
+        : 'text-zinc-500 hover:text-white hover:bg-white/5'}"
       onclick={() => onLoaderChange("fabric")}
     >
       Fabric
     </button>
     <button
-      class="flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors {selectedLoader ===
-      'forge'
-        ? 'bg-orange-600 text-white'
-        : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}"
+      class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+      {selectedLoader === 'forge'
+        ? 'bg-orange-500/20 text-orange-300 shadow-lg border border-orange-500/20'
+        : 'text-zinc-500 hover:text-white hover:bg-white/5'}"
       onclick={() => onLoaderChange("forge")}
     >
       Forge
     </button>
   </div>
 
-  {#if selectedLoader === "vanilla"}
-    <p class="text-sm text-zinc-500">
-      Launch the selected Minecraft version without any mod loaders.
-    </p>
-  {:else if !selectedGameVersion}
-    <p class="text-sm text-zinc-500">
-      Select a Minecraft version first to see available {selectedLoader} versions.
-    </p>
-  {:else if isLoading}
-    <div class="flex items-center gap-2 text-sm text-zinc-400">
-      <svg
-        class="animate-spin h-4 w-4"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle
-          class="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          stroke-width="4"
-        ></circle>
-        <path
-          class="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        ></path>
-      </svg>
-      Loading {selectedLoader} versions...
-    </div>
-  {:else if error}
-    <p class="text-sm text-red-400">{error}</p>
-  {:else if selectedLoader === "fabric"}
-    <div class="space-y-3">
-      <div>
-        <label for="fabric-loader-select" class="block text-xs text-zinc-500 mb-1"
-          >Loader Version</label
-        >
-        <select
-          id="fabric-loader-select"
-          class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-          bind:value={selectedFabricLoader}
-        >
-          {#each fabricLoaders as loader}
-            <option value={loader.version}>
-              {loader.version}
-              {loader.stable ? "(stable)" : ""}
-            </option>
-          {/each}
-        </select>
-      </div>
-      <button
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        onclick={installModLoader}
-        disabled={isLoading || !selectedFabricLoader}
-      >
-        Install Fabric {selectedFabricLoader}
-      </button>
-    </div>
-  {:else if selectedLoader === "forge"}
-    <div class="space-y-3">
-      {#if forgeVersions.length === 0}
-        <p class="text-sm text-zinc-500">
-          No Forge versions available for Minecraft {selectedGameVersion}
-        </p>
-      {:else}
-        <div>
-          <label for="forge-version-select" class="block text-xs text-zinc-500 mb-1"
-            >Forge Version</label
-          >
-          <select
-            id="forge-version-select"
-            class="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-orange-500"
-            bind:value={selectedForgeVersion}
-          >
-            {#each forgeVersions as version}
-              <option value={version.version}>
-                {version.version}
-                {version.recommended ? "⭐ recommended" : ""}
-                {version.latest ? "(latest)" : ""}
-              </option>
-            {/each}
-          </select>
+  <!-- Content Area -->
+  <div class="min-h-[100px] flex flex-col justify-center">
+    {#if selectedLoader === "vanilla"}
+        <div class="text-center p-4 rounded-xl bg-white/5 border border-dashed border-white/10 text-white/40 text-sm">
+           No mod loader selected. <br> Pure vanilla experience.
         </div>
+        
+    {:else if !selectedGameVersion}
+        <div class="text-center p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
+           ⚠️ Please select a base Minecraft version first.
+        </div>
+        
+    {:else if isLoading}
+        <div class="flex flex-col items-center gap-2 text-sm text-white/50 py-4">
+            <div class="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            Loading {selectedLoader} versions...
+        </div>
+        
+    {:else if error}
+        <div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm break-words">
+            {error}
+        </div>
+        
+    {:else if selectedLoader === "fabric"}
+        <div class="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div>
+            <label for="fabric-loader-select" class="block text-xs text-white/40 mb-2 pl-1"
+            >Loader Version</label
+            >
+            <div class="relative">
+                <select
+                id="fabric-loader-select"
+                class="w-full appearance-none bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500/50 text-white transition-colors"
+                bind:value={selectedFabricLoader}
+                >
+                {#each fabricLoaders as loader}
+                    <option value={loader.version}>
+                    {loader.version} {loader.stable ? "(stable)" : ""}
+                    </option>
+                {/each}
+                </select>
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">▼</div>
+            </div>
+        </div>
+        
         <button
-          class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          onclick={installModLoader}
-          disabled={isLoading || !selectedForgeVersion}
+            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 px-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:shadow-none hover:scale-[1.02] active:scale-[0.98]"
+            onclick={installModLoader}
+            disabled={isLoading || !selectedFabricLoader}
         >
-          Install Forge {selectedForgeVersion}
+            Install Fabric {selectedFabricLoader}
         </button>
-      {/if}
-    </div>
-  {/if}
+        </div>
+        
+    {:else if selectedLoader === "forge"}
+        <div class="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {#if forgeVersions.length === 0}
+            <div class="text-center p-4 text-sm text-white/40 italic">
+            No Forge versions available for {selectedGameVersion}
+            </div>
+        {:else}
+            <div>
+            <label for="forge-version-select" class="block text-xs text-white/40 mb-2 pl-1"
+                >Forge Version</label
+            >
+            <div class="relative">
+                <select
+                    id="forge-version-select"
+                    class="w-full appearance-none bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500/50 text-white transition-colors"
+                    bind:value={selectedForgeVersion}
+                >
+                    {#each forgeVersions as version}
+                    <option value={version.version}>
+                        {version.version}
+                        {version.recommended ? "⭐ recommended" : ""}
+                        {version.latest ? "(latest)" : ""}
+                    </option>
+                    {/each}
+                </select>
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">▼</div>
+            </div>
+            </div>
+            
+            <button
+            class="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 px-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none hover:scale-[1.02] active:scale-[0.98]"
+            onclick={installModLoader}
+            disabled={isLoading || !selectedForgeVersion}
+            >
+            Install Forge {selectedForgeVersion}
+            </button>
+        {/if}
+        </div>
+    {/if}
+  </div>
 </div>

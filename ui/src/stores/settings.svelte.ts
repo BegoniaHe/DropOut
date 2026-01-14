@@ -10,6 +10,9 @@ export class SettingsState {
     width: 854,
     height: 480,
     download_threads: 32,
+    enable_gpu_acceleration: false,
+    enable_visual_effects: true,
+    active_effect: "constellation",
   });
   javaInstallations = $state<JavaInstallation[]>([]);
   isDetectingJava = $state(false);
