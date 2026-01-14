@@ -2,10 +2,13 @@
   import { gameState } from "../stores/game.svelte";
 
   let searchQuery = $state("");
+  let normalizedQuery = $derived(
+    searchQuery.trim().toLowerCase().replaceAll("。", ".")
+  );
 
   let filteredVersions = $derived(
     gameState.versions.filter((v) =>
-      v.id.toLowerCase().includes(searchQuery.trim().toLowerCase().replaceAll("。", "."))
+      v.id.toLowerCase().includes(normalizedQuery)
     )
   );
 </script>
@@ -23,7 +26,7 @@
   <div class="grid gap-2">
     {#if gameState.versions.length === 0}
       <div class="text-zinc-500">Loading versions...</div>
-    {:else if filteredVersions.length === 0}
+    {:else if filteredVersions.length === 0 && normalizedQuery.length > 0}
       <div class="text-zinc-500">No versions found matching "{searchQuery}"</div>
     {:else}
       {#each filteredVersions as version}
