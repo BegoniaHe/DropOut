@@ -11,6 +11,7 @@ pub struct LauncherConfig {
     pub java_path: String,
     pub width: u32,
     pub height: u32,
+    pub download_threads: u32, // concurrent download threads
 }
 
 impl Default for LauncherConfig {
@@ -21,6 +22,7 @@ impl Default for LauncherConfig {
             java_path: "java".to_string(),
             width: 854,
             height: 480,
+            download_threads: 32,
         }
     }
 }
