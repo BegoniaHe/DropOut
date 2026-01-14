@@ -3,7 +3,7 @@
 DropOut is a modern, fast, and efficient Minecraft launcher built with the latest web and system technologies. It leverages **Tauri v2** to deliever a lightweight application with a robust **Rust** backend and a reactive **Svelte 5** frontend.
 
 <div align="center">
-   <img width="500" src="assets/image.jpg" />
+   <img width="700" src="assets/image.png" />
 </div>
 
 ## Features
