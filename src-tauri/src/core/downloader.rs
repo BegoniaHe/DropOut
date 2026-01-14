@@ -105,10 +105,7 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>, max_concur
     // Clamp max_concurrent to a valid range (1-128) to prevent edge cases
     let max_concurrent = max_concurrent.clamp(1, 128);
     
-    let client = reqwest::Client::builder()
-        .pool_max_idle_per_host(max_concurrent)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = reqwest::Client::new();
     let semaphore = Arc::new(Semaphore::new(max_concurrent));
     let progress = Arc::new(GlobalProgress::new(tasks.len()));
 
