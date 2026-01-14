@@ -144,7 +144,7 @@ jobs:
       - name: Install Dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg git
+          pacman -S --noconfirm webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg git fuse2 linuxdeploy
           # Fix makepkg running as root
           sed -i 's/E_ROOT=1/E_ROOT=0/' /usr/bin/makepkg || true
 
