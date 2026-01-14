@@ -1,6 +1,7 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, Window};
 use tokio::io::AsyncWriteExt;
@@ -19,11 +20,20 @@ pub struct ProgressEvent {
     pub downloaded: u64,
     pub total: u64,
     pub status: String, // "Downloading", "Verifying", "Finished", "Error"
+    pub completed_files: usize,
+    pub total_files: usize,
+    pub total_downloaded_bytes: u64,
 }
 
-pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<(), String> {
-    let client = reqwest::Client::new();
-    let semaphore = Arc::new(Semaphore::new(10)); // Max 10 concurrent downloads
+pub async fn download_files(window: Window, tasks: Vec<DownloadTask>, max_concurrent: usize) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .pool_max_idle_per_host(max_concurrent)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let semaphore = Arc::new(Semaphore::new(max_concurrent));
+    let completed_files = Arc::new(AtomicUsize::new(0));
+    let total_downloaded_bytes = Arc::new(AtomicU64::new(0));
+    let total_files = tasks.len();
 
     // Notify start (total files)
     let _ = window.emit("download-start", tasks.len());
@@ -32,6 +42,8 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
         let client = client.clone();
         let window = window.clone();
         let semaphore = semaphore.clone();
+        let completed_files = completed_files.clone();
+        let total_downloaded_bytes = total_downloaded_bytes.clone();
 
         async move {
             let _permit = semaphore.acquire().await.unwrap();
@@ -46,6 +58,9 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                         downloaded: 0,
                         total: 0,
                         status: "Verifying".into(),
+                        completed_files: completed_files.load(Ordering::Relaxed),
+                        total_files,
+                        total_downloaded_bytes: total_downloaded_bytes.load(Ordering::Relaxed),
                     },
                 );
 
@@ -57,6 +72,7 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                         let result = hex::encode(hasher.finalize());
                         if &result == expected_sha1 {
                             // Already valid
+                            let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
                             let _ = window.emit(
                                 "download-progress",
                                 ProgressEvent {
@@ -64,6 +80,9 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                                     downloaded: 0,
                                     total: 0,
                                     status: "Skipped".into(),
+                                    completed_files: completed,
+                                    total_files,
+                                    total_downloaded_bytes: total_downloaded_bytes.load(Ordering::Relaxed),
                                 },
                             );
                             return Ok(());
@@ -93,6 +112,7 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                                     return Err(format!("Write error: {}", e));
                                 }
                                 downloaded += chunk.len() as u64;
+                                let total_bytes = total_downloaded_bytes.fetch_add(chunk.len() as u64, Ordering::Relaxed) + chunk.len() as u64;
                                 let _ = window.emit(
                                     "download-progress",
                                     ProgressEvent {
@@ -100,6 +120,9 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                                         downloaded,
                                         total: total_size,
                                         status: "Downloading".into(),
+                                        completed_files: completed_files.load(Ordering::Relaxed),
+                                        total_files,
+                                        total_downloaded_bytes: total_bytes,
                                     },
                                 );
                             }
@@ -111,6 +134,7 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                 Err(e) => return Err(format!("Request error: {}", e)),
             }
 
+            let completed = completed_files.fetch_add(1, Ordering::Relaxed) + 1;
             let _ = window.emit(
                 "download-progress",
                 ProgressEvent {
@@ -118,6 +142,9 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>) -> Result<
                     downloaded: 0,
                     total: 0,
                     status: "Finished".into(),
+                    completed_files: completed,
+                    total_files,
+                    total_downloaded_bytes: total_downloaded_bytes.load(Ordering::Relaxed),
                 },
             );
 
