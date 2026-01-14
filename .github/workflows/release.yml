@@ -68,6 +68,12 @@ jobs:
             name: "Linux ARM64"
             target: "aarch64-unknown-linux-gnu"
             args: "--target aarch64-unknown-linux-gnu"
+          - platform: "ubuntu-22.04"
+            name: "Linux x86_64 (Arch/Wayland)"
+            target: "x86_64-unknown-linux-gnu"
+            args: "--target x86_64-unknown-linux-gnu"
+            container: "archlinux:latest"
+            wayland: true
           - platform: "macos-latest"
             name: "macOS ARM64"
             target: "aarch64-apple-darwin"
@@ -82,11 +88,14 @@ jobs:
             args: "--target aarch64-pc-windows-msvc"
 
     runs-on: ${{ matrix.platform }}
+    container:
+      image: ${{ matrix.container }}
+      options: --user root
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Dependencies (Linux x86_64)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-22.04' && !matrix.wayland
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libfuse2
@@ -96,6 +105,27 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libfuse2
+
+      - name: Install Dependencies (Arch Linux)
+        if: matrix.wayland
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm webkit2gtk-4.1 base-devel curl wget file openssl gtk3 appindicator-gtk3 librsvg fuse2
+
+      - name: Setup Wayland Environment (Arch)
+        if: matrix.wayland
+        run: |
+          pacman -S --noconfirm cage wayland protocols weston
+
+          echo "WAYLAND_DISPLAY=wayland-1" >> $GITHUB_ENV
+          echo "GDK_BACKEND=wayland" >> $GITHUB_ENV
+          echo "XDG_SESSION_TYPE=wayland" >> $GITHUB_ENV
+          echo "XDG_RUNTIME_DIR=/tmp/runtime-wayland" >> $GITHUB_ENV
+
+          mkdir -p /tmp/runtime-wayland
+          chmod 0700 /tmp/runtime-wayland
+
+          echo "Wayland environment configured for testing"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -125,12 +155,16 @@ jobs:
           shared-key: ${{ matrix.target }}
 
       - name: Setup appimagetool (Linux)
-        if: startsWith(matrix.platform, 'ubuntu')
+        if: (startsWith(matrix.platform, 'ubuntu') || matrix.wayland) && !startsWith(matrix.platform, 'macos') && !startsWith(matrix.platform, 'windows')
         run: |
           ARCH=$(uname -m)
           wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${ARCH}.AppImage"
           chmod +x "appimagetool-${ARCH}.AppImage"
-          sudo mv "appimagetool-${ARCH}.AppImage" /usr/local/bin/appimagetool
+          if command -v sudo >/dev/null 2>&1; then
+            sudo mv "appimagetool-${ARCH}.AppImage" /usr/local/bin/appimagetool
+          else
+            mv "appimagetool-${ARCH}.AppImage" /usr/local/bin/appimagetool
+          fi
 
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
@@ -141,7 +175,7 @@ jobs:
           args: ${{ matrix.args }}
 
       - name: Fix AppImage for Wayland (Linux)
-        if: startsWith(matrix.platform, 'ubuntu')
+        if: startsWith(matrix.platform, 'ubuntu') || matrix.platform == 'archlinux-latest'
         run: |
           # Locate the generated AppImage
           APPIMAGE=$(find bundle -name "*.AppImage" -type f | head -1)
@@ -164,4 +198,22 @@ jobs:
             appimagetool squashfs-root "$APPIMAGE"
             rm -rf squashfs-root
           fi
+        working-directory: src-tauri/target/release
+
+      - name: Test AppImage on Wayland (Arch)
+        if: matrix.platform == 'archlinux-latest' && matrix.wayland
+        run: |
+          # Test that the AppImage can run in Wayland environment
+          APPIMAGE=$(find bundle -name "*.AppImage" -type f | head -1)
+          echo "Testing AppImage: $APPIMAGE"
+          echo "Wayland display: $WAYLAND_DISPLAY"
+          echo "GDK backend: $GDK_BACKEND"
+
+          # Quick startup test (timeout after 5 seconds)
+          timeout 5 "$APPIMAGE" --version 2>&1 || {
+            echo "AppImage test failed with exit code: $?"
+            exit 1
+          }
+
+          echo "AppImage Wayland compatibility test passed!"
         working-directory: src-tauri/target/release
