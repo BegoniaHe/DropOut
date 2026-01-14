@@ -3,3 +3,6 @@ target/
 
 # lock file
 Cargo.lock
+
+# Tauri dev files
+src-tauri/gen/
