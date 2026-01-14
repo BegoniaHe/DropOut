@@ -8,7 +8,6 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 mod core;
-mod launcher;
 mod utils;
 
 // Global storage for MS refresh token (not in Account struct to keep it separate)
