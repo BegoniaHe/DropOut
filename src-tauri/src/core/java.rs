@@ -327,7 +327,7 @@ pub async fn download_and_install_java(
 
     // 7. Verify installation
     let installation = check_java_installation(&java_bin)
-        .ok_or_else(|| "Fail to verify Java installation".to_string())?;
+        .ok_or_else(|| "Failed to verify Java installation".to_string())?;
 
     Ok(installation)
 }
