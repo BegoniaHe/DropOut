@@ -4,19 +4,10 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Stored account data for persistence
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AccountStore {
     pub accounts: Vec<StoredAccount>,
     pub active_account_id: Option<String>,
-}
-
-impl Default for AccountStore {
-    fn default() -> Self {
-        Self {
-            accounts: Vec::new(),
-            active_account_id: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,13 +122,17 @@ impl AccountStorage {
     pub fn get_active_account(&self) -> Option<(StoredAccount, Option<String>)> {
         let store = self.load();
         if let Some(active_id) = &store.active_account_id {
-            store.accounts.iter().find(|a| &a.id() == active_id).map(|a| {
-                let ms_token = match a {
-                    StoredAccount::Microsoft(m) => m.ms_refresh_token.clone(),
-                    _ => None,
-                };
-                (a.clone(), ms_token)
-            })
+            store
+                .accounts
+                .iter()
+                .find(|a| &a.id() == active_id)
+                .map(|a| {
+                    let ms_token = match a {
+                        StoredAccount::Microsoft(m) => m.ms_refresh_token.clone(),
+                        _ => None,
+                    };
+                    (a.clone(), ms_token)
+                })
         } else {
             None
         }
