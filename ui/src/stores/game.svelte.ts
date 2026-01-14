@@ -35,6 +35,8 @@ export class GameState {
             // Fallback to just the first ID if not in manifest
             this.selectedVersion = this.installedVersionIds[0];
         }
+      } else {
+        this.selectedVersion = "";
       }
     } catch (e) {
       console.error("Failed to fetch versions:", e);
