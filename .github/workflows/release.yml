@@ -131,3 +131,55 @@ jobs:
         with:
           releaseId: ${{ needs.promote-release.outputs.release_id }}
           args: ${{ matrix.args }}
+
+  build-tauri-arch:
+    name: Build & Upload (Arch Linux)
+    needs: promote-release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install Dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm webkit2gtk base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg git
+          # Fix makepkg running as root
+          sed -i 's/E_ROOT=1/E_ROOT=0/' /usr/bin/makepkg || true
+
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+
+      - name: Install Frontend Dependencies
+        run: pnpm install
+        working-directory: ui
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: "x86_64-unknown-linux-gnu"
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.promote-release.outputs.release_id }}
+          args: "--target x86_64-unknown-linux-gnu"
