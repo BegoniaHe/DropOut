@@ -587,6 +587,42 @@ async fn get_versions() -> Result<Vec<core::manifest::Version>, String> {
 }
 
 #[tauri::command]
+async fn get_installed_versions(app_handle: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let game_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    
+    let versions_dir = game_dir.join("versions");
+    
+    if !versions_dir.exists() {
+        return Ok(Vec::new());
+    }
+    
+    let mut installed_versions = Vec::new();
+    
+    if let Ok(entries) = std::fs::read_dir(versions_dir) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                if let Ok(file_type) = entry.file_type() {
+                    if file_type.is_dir() {
+                        if let Ok(file_name) = entry.file_name().into_string() {
+                            // Optionally verify if {version_id}.json exists inside
+                            let json_path = entry.path().join(format!("{}.json", file_name));
+                            if json_path.exists() {
+                                installed_versions.push(file_name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(installed_versions)
+}
+
+#[tauri::command]
 async fn login_offline(
     window: Window,
     state: State<'_, core::auth::AccountState>,
@@ -784,6 +820,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             start_game,
             get_versions,
+            get_installed_versions,
             login_offline,
             get_active_account,
             logout,
