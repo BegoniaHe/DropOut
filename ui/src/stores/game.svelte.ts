@@ -9,7 +9,7 @@ export class GameState {
 
   async loadVersions() {
     try {
-      this.versions = await invoke("get_versions");
+      this.versions = await invoke<Version[]>("get_versions");
       if (this.versions.length > 0) {
         const latest = this.versions.find((v) => v.type === "release");
         this.selectedVersion = latest ? latest.id : this.versions[0].id;
@@ -35,9 +35,9 @@ export class GameState {
     uiState.setStatus("Preparing to launch " + this.selectedVersion + "...");
     console.log("Invoking start_game for version:", this.selectedVersion);
     try {
-      const msg = await invoke("start_game", { versionId: this.selectedVersion });
+      const msg = await invoke<string>("start_game", { versionId: this.selectedVersion });
       console.log("Response:", msg);
-      uiState.setStatus(msg as string);
+      uiState.setStatus(msg);
     } catch (e) {
       console.error(e);
       uiState.setStatus("Error: " + e);
