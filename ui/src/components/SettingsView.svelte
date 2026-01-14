@@ -117,6 +117,30 @@
       </div>
     </div>
 
+    <!-- Download Settings -->
+    <div class="bg-zinc-800/50 p-6 rounded-lg border border-zinc-700">
+      <h3
+        class="block text-sm font-bold text-zinc-400 mb-4 uppercase tracking-wide"
+        >Download Settings</h3>
+      <div>
+        <label for="download-threads" class="block text-xs text-zinc-500 mb-1"
+          >Concurrent Download Threads</label
+        >
+        <input
+          id="download-threads"
+          bind:value={settingsState.settings.download_threads}
+          type="number"
+          min="1"
+          max="128"
+          step="1"
+          class="bg-zinc-950 text-white w-full p-3 rounded border border-zinc-700 focus:border-indigo-500 outline-none"
+        />
+        <p class="text-xs text-zinc-500 mt-2">
+          Number of concurrent download threads (1-128). Higher values increase download speed but use more bandwidth and system resources. Default: 32
+        </p>
+      </div>
+    </div>
+
     <div class="pt-4">
       <button
         onclick={() => settingsState.saveSettings()}
