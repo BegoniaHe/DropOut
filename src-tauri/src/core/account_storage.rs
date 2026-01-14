@@ -4,13 +4,11 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Stored account data for persistence
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AccountStore {
     pub accounts: Vec<StoredAccount>,
     pub active_account_id: Option<String>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
