@@ -15,10 +15,8 @@ export class SettingsState {
 
   async loadSettings() {
     try {
-      const result = await invoke("get_settings");
-      if (result && typeof result === "object") {
-        this.settings = result as LauncherConfig;
-      }
+      const result = await invoke<LauncherConfig>("get_settings");
+      this.settings = result;
     } catch (e) {
       console.error("Failed to load settings:", e);
     }
