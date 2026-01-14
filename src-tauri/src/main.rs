@@ -7,6 +7,17 @@ use tauri::{Emitter, Manager, State, Window}; // Added Emitter
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+/// Helper macro to emit launcher log events
+macro_rules! emit_log {
+    ($window:expr, $msg:expr) => {
+        let _ = $window.emit("launcher-log", $msg);
+        println!("[Launcher] {}", $msg);
+    };
+}
+
 mod core;
 mod utils;
 
@@ -30,17 +41,26 @@ async fn start_game(
     config_state: State<'_, core::config::ConfigState>,
     version_id: String,
 ) -> Result<String, String> {
-    println!("Backend received StartGame for {}", version_id);
+    emit_log!(window, format!("Starting game launch for version: {}", version_id));
 
     // Check for active account
+    emit_log!(window, "Checking for active account...".to_string());
     let account = auth_state
         .active_account
         .lock()
         .unwrap()
         .clone()
         .ok_or("No active account found. Please login first.")?;
+    
+    let account_type = match &account {
+        core::auth::Account::Offline(_) => "Offline",
+        core::auth::Account::Microsoft(_) => "Microsoft",
+    };
+    emit_log!(window, format!("Account found: {} ({})", account.username(), account_type));
 
     let config = config_state.config.lock().unwrap().clone();
+    emit_log!(window, format!("Java path: {}", config.java_path));
+    emit_log!(window, format!("Memory: {}MB - {}MB", config.min_memory, config.max_memory));
 
     // Get App Data Directory (e.g., ~/.local/share/com.dropout.launcher or similar)
     // The identifier is set in tauri.conf.json.
@@ -56,12 +76,14 @@ async fn start_game(
         .await
         .map_err(|e| e.to_string())?;
 
-    println!("Game Directory: {:?}", game_dir);
+    emit_log!(window, format!("Game directory: {:?}", game_dir));
 
     // 1. Fetch manifest to find the version URL
+    emit_log!(window, "Fetching version manifest...".to_string());
     let manifest = core::manifest::fetch_version_manifest()
         .await
         .map_err(|e| e.to_string())?;
+    emit_log!(window, format!("Found {} versions in manifest", manifest.versions.len()));
 
     // Find the version info
     let version_info = manifest
@@ -71,6 +93,7 @@ async fn start_game(
         .ok_or_else(|| format!("Version {} not found in manifest", version_id))?;
 
     // 2. Fetch specific version JSON (client.jar info)
+    emit_log!(window, format!("Fetching version details for {}...", version_id));
     let version_url = &version_info.url;
     let version_details: core::game_version::GameVersion = reqwest::get(version_url)
         .await
@@ -78,8 +101,10 @@ async fn start_game(
         .json()
         .await
         .map_err(|e| e.to_string())?;
+    emit_log!(window, format!("Version details loaded: main class = {}", version_details.main_class));
 
     // 3. Prepare download tasks
+    emit_log!(window, "Preparing download tasks...".to_string());
     let mut download_tasks = Vec::new();
 
     // --- Client Jar ---
@@ -231,18 +256,20 @@ async fn start_game(
         });
     }
 
-    println!(
-        "Total download tasks (Client + Libs + Assets): {}",
+    emit_log!(window, format!(
+        "Total download tasks: {} (Client + Libraries + Assets)",
         download_tasks.len()
-    );
+    ));
 
     // 4. Start Download
+    emit_log!(window, "Starting downloads...".to_string());
     core::downloader::download_files(window.clone(), download_tasks)
         .await
         .map_err(|e| e.to_string())?;
+    emit_log!(window, "All downloads completed successfully".to_string());
 
     // 5. Extract Natives
-    println!("Extracting natives...");
+    emit_log!(window, "Extracting native libraries...".to_string());
     let natives_dir = game_dir.join("versions").join(&version_id).join("natives");
 
     // Clean old natives if they exist to prevent conflicts
@@ -402,21 +429,34 @@ async fn start_game(
         }
     }
 
-    println!("Launching game with {} args...", args.len());
-    // Debug: Print arguments to help diagnose issues
-    println!("Launch Args: {:?}", args);
+    emit_log!(window, format!("Preparing to launch game with {} arguments...", args.len()));
+    // Debug: Log arguments (only first few to avoid spam)
+    if args.len() > 10 {
+        emit_log!(window, format!("First 10 args: {:?}", &args[..10]));
+    }
 
     // Spawn the process
+    emit_log!(window, format!("Starting Java process: {}", config.java_path));
     let mut command = Command::new(&config.java_path);
     command.args(&args);
     command.current_dir(&game_dir); // Run in game directory
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
 
+    // On Windows, use CREATE_NO_WINDOW flag to hide the console window
+    #[cfg(target_os = "windows")]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+        emit_log!(window, "Applied CREATE_NO_WINDOW flag for Windows".to_string());
+    }
+
     // Spawn and handle output
     let mut child = command
         .spawn()
         .map_err(|e| format!("Failed to launch java: {}", e))?;
+
+    emit_log!(window, "Java process started successfully".to_string());
 
     let stdout = child
         .stdout
@@ -427,19 +467,42 @@ async fn start_game(
         .take()
         .expect("child did not have a handle to stderr");
 
+    // Emit launcher log that game is running
+    emit_log!(window, "Game is now running, capturing output...".to_string());
+
     let window_rx = window.clone();
     tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             let _ = window_rx.emit("game-stdout", line);
         }
+        // Emit log when stdout stream ends (game closing)
+        let _ = window_rx.emit("launcher-log", "Game stdout stream ended");
     });
 
     let window_rx_err = window.clone();
+    let window_exit = window.clone();
     tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             let _ = window_rx_err.emit("game-stderr", line);
+        }
+        // Emit log when stderr stream ends
+        let _ = window_rx_err.emit("launcher-log", "Game stderr stream ended");
+    });
+
+    // Monitor game process exit
+    tokio::spawn(async move {
+        match child.wait().await {
+            Ok(status) => {
+                let msg = format!("Game process exited with status: {}", status);
+                let _ = window_exit.emit("launcher-log", &msg);
+                let _ = window_exit.emit("game-exited", status.code().unwrap_or(-1));
+            }
+            Err(e) => {
+                let msg = format!("Error waiting for game process: {}", e);
+                let _ = window_exit.emit("launcher-log", &msg);
+            }
         }
     });
 
