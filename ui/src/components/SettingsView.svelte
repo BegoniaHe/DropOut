@@ -183,6 +183,12 @@
                 >
                 {settingsState.isDetectingJava ? "Detecting..." : "Auto Detect"}
                 </button>
+                <button
+                onclick={() => settingsState.openJavaDownloadModal()}
+                class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition-colors whitespace-nowrap text-sm font-medium"
+                >
+                Download Java
+                </button>
             </div>
         </div>
       
@@ -297,3 +303,74 @@
     </div>
   </div>
 </div>
+
+<!-- Java Download Modal -->
+{#if settingsState.showJavaDownloadModal}
+  <div class="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-sm bg-black/70">
+    <div class="bg-zinc-900 rounded-2xl border border-white/10 p-8 max-w-md w-full mx-4 shadow-2xl">
+      <h3 class="text-2xl font-bold mb-6 text-white">Download Java</h3>
+      
+      <div class="space-y-6">
+        <!-- Java Version Selection -->
+        <div>
+          <label class="block text-sm font-medium text-white/70 mb-2">Java Version</label>
+          <select
+            bind:value={settingsState.selectedJavaVersion}
+            class="bg-black/40 text-white w-full px-4 py-3 rounded-xl border border-white/10 focus:border-indigo-500/50 outline-none"
+          >
+            {#each settingsState.availableJavaVersions as version}
+              <option value={version}>Java {version}</option>
+            {/each}
+          </select>
+        </div>
+
+        <!-- Image Type Selection -->
+        <div>
+          <label class="block text-sm font-medium text-white/70 mb-2">Image Type</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              onclick={() => settingsState.selectedImageType = "jre"}
+              class="px-4 py-3 rounded-xl border transition-all {settingsState.selectedImageType === 'jre' ? 'bg-indigo-500/20 border-indigo-500/50 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:bg-white/5'}"
+            >
+              JRE
+            </button>
+            <button
+              onclick={() => settingsState.selectedImageType = "jdk"}
+              class="px-4 py-3 rounded-xl border transition-all {settingsState.selectedImageType === 'jdk' ? 'bg-indigo-500/20 border-indigo-500/50 text-white' : 'bg-black/20 border-white/10 text-white/60 hover:bg-white/5'}"
+            >
+              JDK
+            </button>
+          </div>
+          <p class="text-xs text-white/40 mt-2">
+            JRE: Runtime only (smaller). JDK: Includes development tools.
+          </p>
+        </div>
+
+        <!-- Status -->
+        {#if settingsState.javaDownloadStatus}
+          <div class="bg-black/40 border border-white/10 rounded-xl p-4 text-sm text-white/80">
+            {settingsState.javaDownloadStatus}
+          </div>
+        {/if}
+
+        <!-- Actions -->
+        <div class="flex gap-3 pt-2">
+          <button
+            onclick={() => settingsState.closeJavaDownloadModal()}
+            disabled={settingsState.isDownloadingJava}
+            class="flex-1 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white px-4 py-3 rounded-xl border border-white/5 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onclick={() => settingsState.downloadJava()}
+            disabled={settingsState.isDownloadingJava}
+            class="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-3 rounded-xl transition-colors font-medium"
+          >
+            {settingsState.isDownloadingJava ? "Downloading..." : "Download & Install"}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}

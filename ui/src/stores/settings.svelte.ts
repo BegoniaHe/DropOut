@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LauncherConfig, JavaInstallation } from "../types";
+import type { LauncherConfig, JavaInstallation, JavaDownloadInfo } from "../types";
 import { uiState } from "./ui.svelte";
 
 export class SettingsState {
@@ -17,6 +17,14 @@ export class SettingsState {
   });
   javaInstallations = $state<JavaInstallation[]>([]);
   isDetectingJava = $state(false);
+  
+  // Java download state
+  showJavaDownloadModal = $state(false);
+  availableJavaVersions = $state<number[]>([]);
+  selectedJavaVersion = $state(21);
+  selectedImageType = $state<"jre" | "jdk">("jre");
+  isDownloadingJava = $state(false);
+  javaDownloadStatus = $state("");
 
   async loadSettings() {
     try {
@@ -61,6 +69,59 @@ export class SettingsState {
 
   selectJava(path: string) {
     this.settings.java_path = path;
+  }
+
+  async openJavaDownloadModal() {
+    this.showJavaDownloadModal = true;
+    this.javaDownloadStatus = "";
+    try {
+      this.availableJavaVersions = await invoke("fetch_available_java_versions");
+      // Default selection logic
+      if (this.availableJavaVersions.includes(21)) {
+        this.selectedJavaVersion = 21;
+      } else if (this.availableJavaVersions.includes(17)) {
+        this.selectedJavaVersion = 17;
+      } else if (this.availableJavaVersions.length > 0) {
+        this.selectedJavaVersion = this.availableJavaVersions[this.availableJavaVersions.length - 1];
+      }
+    } catch (e) {
+      console.error("Failed to fetch available Java versions:", e);
+      this.javaDownloadStatus = "Error fetching Java versions: " + e;
+    }
+  }
+
+  closeJavaDownloadModal() {
+    if (!this.isDownloadingJava) {
+      this.showJavaDownloadModal = false;
+    }
+  }
+
+  async downloadJava() {
+    this.isDownloadingJava = true;
+    this.javaDownloadStatus = `Downloading Java ${this.selectedJavaVersion} ${this.selectedImageType.toUpperCase()}...`;
+    
+    try {
+      const result: JavaInstallation = await invoke("download_adoptium_java", {
+        majorVersion: this.selectedJavaVersion,
+        imageType: this.selectedImageType,
+        customPath: null,
+      });
+      
+      this.javaDownloadStatus = `Java ${this.selectedJavaVersion} installed at ${result.path}`;
+      this.settings.java_path = result.path;
+      
+      await this.detectJava();
+      
+      setTimeout(() => {
+        this.showJavaDownloadModal = false;
+        uiState.setStatus(`Java ${this.selectedJavaVersion} is ready to use!`);
+      }, 1500);
+    } catch (e) {
+      console.error("Failed to download Java:", e);
+      this.javaDownloadStatus = "Download failed: " + e;
+    } finally {
+      this.isDownloadingJava = false;
+    }
   }
 }
 

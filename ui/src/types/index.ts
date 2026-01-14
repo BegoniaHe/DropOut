@@ -43,6 +43,16 @@ export interface JavaInstallation {
   is_64bit: boolean;
 }
 
+export interface JavaDownloadInfo {
+  version: string;
+  release_name: string;
+  download_url: string;
+  file_name: string;
+  file_size: number;
+  checksum: string | null;
+  image_type: string;
+}
+
 // ==================== Fabric Types ====================
 
 export interface FabricGameVersion {
