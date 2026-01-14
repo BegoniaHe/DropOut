@@ -38,6 +38,8 @@ jobs:
           token: ${{ github.token }}
           tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
           changelogFilePath: CHANGELOG.md
+          includeInvalidCommits: true
+          useGitmojis: false
 
       - name: Create Release
         id: create_release
