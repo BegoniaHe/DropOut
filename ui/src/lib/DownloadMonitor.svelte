@@ -83,19 +83,12 @@
         const timeDiff = (now - lastUpdateTime) / 1000; // seconds
         
         if (timeDiff >= 0.5) { // Update speed every 0.5 seconds
-          // On the first update, initialize lastTotalBytes to avoid counting
-          // bytes downloaded before the timer window started.
-          if (lastTotalBytes === 0 && totalDownloadedBytes > 0) {
-            lastTotalBytes = totalDownloadedBytes;
-            lastUpdateTime = now;
-          } else {
-            const bytesDiff = totalDownloadedBytes - lastTotalBytes;
-            const instantSpeed = bytesDiff / timeDiff;
-            // Smooth the speed with exponential moving average
-            downloadSpeed = downloadSpeed === 0 ? instantSpeed : downloadSpeed * 0.7 + instantSpeed * 0.3;
-            lastUpdateTime = now;
-            lastTotalBytes = totalDownloadedBytes;
-          }
+          const bytesDiff = totalDownloadedBytes - lastTotalBytes;
+          const instantSpeed = bytesDiff / timeDiff;
+          // Smooth the speed with exponential moving average
+          downloadSpeed = downloadSpeed === 0 ? instantSpeed : downloadSpeed * 0.7 + instantSpeed * 0.3;
+          lastUpdateTime = now;
+          lastTotalBytes = totalDownloadedBytes;
         }
 
         // Estimate remaining time
