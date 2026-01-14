@@ -40,6 +40,20 @@ impl MsRefreshTokenState {
     }
 }
 
+/// Check if a string contains unresolved placeholders in the form ${...}
+fn has_unresolved_placeholder(s: &str) -> bool {
+    if let Some(start_pos) = s.find("${") {
+        // Check if there's a closing brace after the opening
+        if let Some(end_pos) = s[start_pos..].find('}') {
+            // Verify the closing brace is after the opening sequence
+            return end_pos > 2; // "${" is 2 chars, so } must be after position 2
+        }
+        // Found opening but no closing brace - treat as unresolved
+        return true;
+    }
+    false
+}
+
 #[tauri::command]
 async fn start_game(
     window: Window,
@@ -450,7 +464,7 @@ async fn start_game(
                                         arg = arg.replace(key, replacement);
                                     }
                                     // Skip arguments with unresolved placeholders
-                                    if !arg.contains("${") {
+                                    if !has_unresolved_placeholder(&arg) {
                                         args.push(arg);
                                     }
                                 } else if let Some(arr) = val.as_array() {
@@ -461,7 +475,7 @@ async fn start_game(
                                                 arg = arg.replace(key, replacement);
                                             }
                                             // Skip arguments with unresolved placeholders
-                                            if !arg.contains("${") {
+                                            if !has_unresolved_placeholder(&arg) {
                                                 args.push(arg);
                                             }
                                         }
