@@ -5,19 +5,12 @@ use std::path::PathBuf;
 
 /// Stored account data for persistence
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AccountStore {
     pub accounts: Vec<StoredAccount>,
     pub active_account_id: Option<String>,
 }
 
-impl Default for AccountStore {
-    fn default() -> Self {
-        Self {
-            accounts: Vec::new(),
-            active_account_id: None,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]

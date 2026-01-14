@@ -26,6 +26,12 @@ pub struct MsRefreshTokenState {
     pub token: Mutex<Option<String>>,
 }
 
+impl Default for MsRefreshTokenState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MsRefreshTokenState {
     pub fn new() -> Self {
         Self {

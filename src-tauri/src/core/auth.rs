@@ -115,7 +115,7 @@ pub async fn refresh_microsoft_token(refresh_token: &str) -> Result<TokenRespons
     let resp = client
         .post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(serde_urlencoded::to_string(&params).map_err(|e| e.to_string())?)
+        .body(serde_urlencoded::to_string(params).map_err(|e| e.to_string())?)
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -225,7 +225,7 @@ pub async fn start_device_flow() -> Result<DeviceCodeResponse, String> {
     let resp = client
         .post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(serde_urlencoded::to_string(&params).map_err(|e| e.to_string())?)
+        .body(serde_urlencoded::to_string(params).map_err(|e| e.to_string())?)
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -261,7 +261,7 @@ pub async fn exchange_code_for_token(device_code: &str) -> Result<TokenResponse,
     let resp = client
         .post(url)
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(serde_urlencoded::to_string(&params).map_err(|e| e.to_string())?)
+        .body(serde_urlencoded::to_string(params).map_err(|e| e.to_string())?)
         .send()
         .await
         .map_err(|e| e.to_string())?;
