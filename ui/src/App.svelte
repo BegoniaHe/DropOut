@@ -140,7 +140,7 @@
   
   {#if uiState.showConsole}
      <!-- Assuming GameConsole handles its own display mode or overlay -->
-    <div class="fixed inset-0 z-[100] bg-black/80  flex items-center justify-center p-10">
+    <div class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-10">
         <div class="w-full h-full bg-[#1e1e1e] rounded-xl overflow-hidden border border-white/10 shadow-2xl relative">
             <button class="absolute top-4 right-4 text-white hover:text-red-400 z-10" onclick={() => uiState.toggleConsole()}>✕</button>
             <GameConsole />
