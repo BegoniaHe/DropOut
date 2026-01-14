@@ -134,6 +134,13 @@ pub async fn download_files(window: Window, tasks: Vec<DownloadTask>, max_concur
                         let result = hex::encode(hasher.finalize());
                         if &result == expected_sha1 {
                             // Already valid, skip download
+                            let skipped_size = tokio::fs::metadata(&task.path)
+                                .await
+                                .map(|m| m.len())
+                                .unwrap_or(0);
+                            if skipped_size > 0 {
+                                let _ = progress.add_bytes(skipped_size);
+                            }
                             emit_progress(&window, &file_name, "Skipped", 0, 0, &progress.inc_completed());
                             return Ok(());
                         }
