@@ -40,6 +40,27 @@ impl MsRefreshTokenState {
     }
 }
 
+/// Check if a string contains unresolved placeholders in the form ${...}
+/// 
+/// After the replacement phase, if a string still contains ${...}, it means
+/// that placeholder variable was not found in the replacements map and is
+/// therefore unresolved. We should skip adding such arguments to avoid
+/// passing malformed arguments to the game launcher.
+fn has_unresolved_placeholder(s: &str) -> bool {
+    // Look for the opening sequence
+    if let Some(start_pos) = s.find("${") {
+        // Check if there's a closing brace after the opening sequence
+        if s[start_pos + 2..].find('}').is_some() {
+            // Found a complete ${...} pattern - this is an unresolved placeholder
+            return true;
+        }
+        // Found ${ but no closing } - also treat as unresolved/malformed
+        return true;
+    }
+    // No ${ found - the string is fully resolved
+    false
+}
+
 #[tauri::command]
 async fn start_game(
     window: Window,
@@ -450,7 +471,7 @@ async fn start_game(
                                         arg = arg.replace(key, replacement);
                                     }
                                     // Skip arguments with unresolved placeholders
-                                    if !arg.contains("${") {
+                                    if !has_unresolved_placeholder(&arg) {
                                         args.push(arg);
                                     }
                                 } else if let Some(arr) = val.as_array() {
@@ -461,7 +482,7 @@ async fn start_game(
                                                 arg = arg.replace(key, replacement);
                                             }
                                             // Skip arguments with unresolved placeholders
-                                            if !arg.contains("${") {
+                                            if !has_unresolved_placeholder(&arg) {
                                                 args.push(arg);
                                             }
                                         }
