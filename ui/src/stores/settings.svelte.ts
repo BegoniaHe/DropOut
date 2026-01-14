@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LauncherConfig, JavaInstallation, JavaDownloadInfo } from "../types";
+import type { JavaInstallation, LauncherConfig } from "../types";
 import { uiState } from "./ui.svelte";
 
 export class SettingsState {
