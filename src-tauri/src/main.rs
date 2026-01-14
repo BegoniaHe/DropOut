@@ -449,7 +449,10 @@ async fn start_game(
                                     for (key, replacement) in &replacements {
                                         arg = arg.replace(key, replacement);
                                     }
-                                    args.push(arg);
+                                    // Skip arguments with unresolved placeholders
+                                    if !arg.contains("${") {
+                                        args.push(arg);
+                                    }
                                 } else if let Some(arr) = val.as_array() {
                                     for sub in arr {
                                         if let Some(s) = sub.as_str() {
@@ -457,7 +460,10 @@ async fn start_game(
                                             for (key, replacement) in &replacements {
                                                 arg = arg.replace(key, replacement);
                                             }
-                                            args.push(arg);
+                                            // Skip arguments with unresolved placeholders
+                                            if !arg.contains("${") {
+                                                args.push(arg);
+                                            }
                                         }
                                     }
                                 }
