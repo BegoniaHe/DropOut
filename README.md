@@ -13,16 +13,10 @@ DropOut is a modern, fast, and efficient Minecraft launcher built with the lates
 - **Cross-Platform**: Native support for **Windows**, **Linux**, and **macOS**.
 - **Modern UI**: Clean and responsive interface built with Svelte 5 and Tailwind CSS 4.
 - **Game Management**:
+
   - Version isolation and management
   - Efficient asset and library downloading
-  - Custom Java arguments support.
-
-## Supported Platforms
-
-- [X] **Linux** `x86_64`
-- [X] **macOS** `ARM64 (Apple Silicon)`
-- [X] **Windows** `x86_64`
-- [X] **Windows** `ARM64`
+  - Custom Java arguments support
 
 ## Roadmap
 
