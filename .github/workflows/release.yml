@@ -115,7 +115,7 @@ jobs:
       - name: Setup Wayland Environment (Arch)
         if: matrix.wayland
         run: |
-          pacman -S --noconfirm cage wayland protocols weston
+          pacman -S --noconfirm cage wayland weston
 
           echo "WAYLAND_DISPLAY=wayland-1" >> $GITHUB_ENV
           echo "GDK_BACKEND=wayland" >> $GITHUB_ENV
