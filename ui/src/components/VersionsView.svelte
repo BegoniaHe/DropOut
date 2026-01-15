@@ -158,7 +158,7 @@
              Fetching manifest...
           </div>
         {:else if filteredVersions().length === 0}
-          <div class="flex flex-col items-center justify-center -40 dark:text-white/30 text-black/30 gap-2">
+          <div class="flex flex-col items-center justify-center h-40 dark:text-white/30 text-black/30 gap-2">
              <span class="text-2xl">👻</span>
              <span>No matching versions found</span>
           </div>

@@ -171,7 +171,7 @@ export class SaturnEffect {
 
             // Optimization: Planet color vs Ring color
             if (type === 0) {
-               // Planet: Warn White
+               // Planet: Warm White
                this.ctx.fillStyle = `rgba(255, 240, 220, ${alpha})`;
             } else {
                // Ring: Cool White
