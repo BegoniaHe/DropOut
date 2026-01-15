@@ -27,5 +27,8 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "ui/pnpm-lock.yaml"
 
+      - run: pnpm install
+        working-directory: ui
+
       - run: pnpm check
         working-directory: ui
