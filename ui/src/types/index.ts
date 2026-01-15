@@ -12,6 +12,9 @@ export interface Account {
   type: "Offline" | "Microsoft";
   username: string;
   uuid: string;
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number; // Unix timestamp for Microsoft accounts
 }
 
 export interface DeviceCodeResponse {

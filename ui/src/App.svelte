@@ -141,6 +141,32 @@
   <LoginModal />
   <StatusToast />
   
+  <!-- Logout Confirmation Dialog -->
+  {#if authState.isLogoutConfirmOpen}
+    <div class="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+        <h3 class="text-lg font-bold text-white mb-2">Logout</h3>
+        <p class="text-zinc-400 text-sm mb-6">
+          Are you sure you want to logout <span class="text-white font-medium">{authState.currentAccount?.username}</span>?
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button
+            onclick={() => authState.cancelLogout()}
+            class="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick={() => authState.confirmLogout()}
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
   {#if uiState.showConsole}
     <div class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-8">
         <div class="w-full h-full max-w-6xl max-h-[85vh] bg-[#1e1e1e] rounded-lg overflow-hidden border border-zinc-700 shadow-2xl relative flex flex-col">

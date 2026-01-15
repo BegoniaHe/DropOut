@@ -1,12 +1,14 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import type {
     FabricGameVersion,
     FabricLoaderVersion,
     ForgeVersion,
     ModLoaderType,
   } from "../types";
-  import { Loader2, Download, AlertCircle, Check, ChevronDown } from 'lucide-svelte';
+  import { Loader2, Download, AlertCircle, Check, ChevronDown, CheckCircle } from 'lucide-svelte';
+  import { logsState } from "../stores/logs.svelte";
 
   interface Props {
     selectedGameVersion: string;
@@ -18,7 +20,9 @@
   // State
   let selectedLoader = $state<ModLoaderType>("vanilla");
   let isLoading = $state(false);
+  let isInstalling = $state(false);
   let error = $state<string | null>(null);
+  let isVersionInstalled = $state(false);
 
   // Fabric state
   let fabricLoaders = $state<FabricLoaderVersion[]>([]);
@@ -33,12 +37,34 @@
   let fabricDropdownRef = $state<HTMLDivElement | null>(null);
   let forgeDropdownRef = $state<HTMLDivElement | null>(null);
 
-  // Load mod loader versions when game version changes
+  // Check if version is installed when game version changes
+  $effect(() => {
+    if (selectedGameVersion) {
+      checkInstallStatus();
+    }
+  });
+
+  // Load mod loader versions when game version or loader type changes
   $effect(() => {
     if (selectedGameVersion && selectedLoader !== "vanilla") {
       loadModLoaderVersions();
     }
   });
+
+  async function checkInstallStatus() {
+    if (!selectedGameVersion) {
+      isVersionInstalled = false;
+      return;
+    }
+    try {
+      isVersionInstalled = await invoke<boolean>("check_version_installed", {
+        versionId: selectedGameVersion,
+      });
+    } catch (e) {
+      console.error("Failed to check install status:", e);
+      isVersionInstalled = false;
+    }
+  }
 
   async function loadModLoaderVersions() {
     isLoading = true;
@@ -51,7 +77,6 @@
         });
         fabricLoaders = loaders.map((l) => l.loader);
         if (fabricLoaders.length > 0) {
-          // Select first stable version or first available
           const stable = fabricLoaders.find((l) => l.stable);
           selectedFabricLoader = stable?.version || fabricLoaders[0].version;
         }
@@ -63,7 +88,6 @@
           }
         );
         if (forgeVersions.length > 0) {
-          // Select recommended version first, then latest
           const recommended = forgeVersions.find((v) => v.recommended);
           const latest = forgeVersions.find((v) => v.latest);
           selectedForgeVersion =
@@ -78,34 +102,75 @@
     }
   }
 
+  async function installVanilla() {
+    if (!selectedGameVersion) {
+      error = "Please select a Minecraft version first";
+      return;
+    }
+
+    isInstalling = true;
+    error = null;
+    logsState.addLog("info", "Installer", `Starting installation of ${selectedGameVersion}...`);
+
+    try {
+      await invoke("install_version", {
+        versionId: selectedGameVersion,
+      });
+      logsState.addLog("info", "Installer", `Successfully installed ${selectedGameVersion}`);
+      isVersionInstalled = true;
+      onInstall(selectedGameVersion);
+    } catch (e) {
+      error = `Failed to install: ${e}`;
+      logsState.addLog("error", "Installer", `Installation failed: ${e}`);
+      console.error(e);
+    } finally {
+      isInstalling = false;
+    }
+  }
+
   async function installModLoader() {
     if (!selectedGameVersion) {
       error = "Please select a Minecraft version first";
       return;
     }
 
-    isLoading = true;
+    isInstalling = true;
     error = null;
 
     try {
+      // First install the base game if not installed
+      if (!isVersionInstalled) {
+        logsState.addLog("info", "Installer", `Installing base game ${selectedGameVersion} first...`);
+        await invoke("install_version", {
+          versionId: selectedGameVersion,
+        });
+        isVersionInstalled = true;
+      }
+
+      // Then install the mod loader
       if (selectedLoader === "fabric" && selectedFabricLoader) {
+        logsState.addLog("info", "Installer", `Installing Fabric ${selectedFabricLoader} for ${selectedGameVersion}...`);
         const result = await invoke<any>("install_fabric", {
           gameVersion: selectedGameVersion,
           loaderVersion: selectedFabricLoader,
         });
+        logsState.addLog("info", "Installer", `Fabric installed successfully: ${result.id}`);
         onInstall(result.id);
       } else if (selectedLoader === "forge" && selectedForgeVersion) {
+        logsState.addLog("info", "Installer", `Installing Forge ${selectedForgeVersion} for ${selectedGameVersion}...`);
         const result = await invoke<any>("install_forge", {
           gameVersion: selectedGameVersion,
           forgeVersion: selectedForgeVersion,
         });
+        logsState.addLog("info", "Installer", `Forge installed successfully: ${result.id}`);
         onInstall(result.id);
       }
     } catch (e) {
       error = `Failed to install ${selectedLoader}: ${e}`;
+      logsState.addLog("error", "Installer", `Installation failed: ${e}`);
       console.error(e);
     } finally {
-      isLoading = false;
+      isInstalling = false;
     }
   }
 
@@ -170,6 +235,7 @@
             ? 'bg-white dark:bg-white/10 text-black dark:text-white shadow-sm'
             : 'text-zinc-500 dark:text-zinc-500 hover:text-black dark:hover:text-white'}"
         onclick={() => onLoaderChange(loader as ModLoaderType)}
+        disabled={isInstalling}
         >
         {loader}
         </button>
@@ -178,15 +244,38 @@
 
   <!-- Content Area -->
   <div class="min-h-[100px] flex flex-col justify-center">
-    {#if selectedLoader === "vanilla"}
-        <div class="text-center p-6 border border-dashed border-zinc-200 dark:border-white/10 rounded-sm text-zinc-500 text-sm">
-           Standard Minecraft experience. No modifications.
-        </div>
-        
-    {:else if !selectedGameVersion}
+    {#if !selectedGameVersion}
         <div class="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-200 rounded-sm text-sm">
            <AlertCircle size={16} />
-           <span>Please select a base Minecraft version first.</span>
+           <span>Please select a Minecraft version first.</span>
+        </div>
+        
+    {:else if selectedLoader === "vanilla"}
+        <div class="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div class="text-center p-4 border border-dashed border-zinc-200 dark:border-white/10 rounded-sm text-zinc-500 text-sm">
+               Standard Minecraft experience. No modifications.
+            </div>
+            
+            {#if isVersionInstalled}
+                <div class="flex items-center justify-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-sm text-sm">
+                    <CheckCircle size={16} />
+                    <span>Version {selectedGameVersion} is installed</span>
+                </div>
+            {:else}
+                <button
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-sm font-bold text-sm transition-all flex items-center justify-center gap-2"
+                    onclick={installVanilla}
+                    disabled={isInstalling}
+                >
+                    {#if isInstalling}
+                        <Loader2 class="animate-spin" size={16} />
+                        Installing...
+                    {:else}
+                        <Download size={16} />
+                        Install {selectedGameVersion}
+                    {/if}
+                </button>
+            {/if}
         </div>
         
     {:else if isLoading}
@@ -211,12 +300,13 @@
                 <button
                     type="button"
                     onclick={() => isFabricDropdownOpen = !isFabricDropdownOpen}
+                    disabled={isInstalling}
                     class="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left
                            bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md 
                            text-sm text-gray-900 dark:text-white
                            hover:border-zinc-400 dark:hover:border-zinc-600 
                            focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30
-                           transition-colors cursor-pointer outline-none"
+                           transition-colors cursor-pointer outline-none disabled:opacity-50"
                 >
                     <span class="truncate">{selectedFabricLabel}</span>
                     <ChevronDown 
@@ -252,12 +342,17 @@
         </div>
         
         <button
-            class="w-full bg-black dark:bg-white text-white dark:text-black py-2.5 px-4 rounded-sm font-bold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
+            class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-sm font-bold text-sm transition-all flex items-center justify-center gap-2"
             onclick={installModLoader}
-            disabled={isLoading || !selectedFabricLoader}
+            disabled={isInstalling || !selectedFabricLoader}
         >
-            <Download size={16} />
-            Install Fabric
+            {#if isInstalling}
+                <Loader2 class="animate-spin" size={16} />
+                Installing...
+            {:else}
+                <Download size={16} />
+                Install Fabric {selectedFabricLoader}
+            {/if}
         </button>
         </div>
         
@@ -277,12 +372,13 @@
                 <button
                     type="button"
                     onclick={() => isForgeDropdownOpen = !isForgeDropdownOpen}
+                    disabled={isInstalling}
                     class="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left
                            bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md 
                            text-sm text-gray-900 dark:text-white
                            hover:border-zinc-400 dark:hover:border-zinc-600 
                            focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30
-                           transition-colors cursor-pointer outline-none"
+                           transition-colors cursor-pointer outline-none disabled:opacity-50"
                 >
                     <span class="truncate">{selectedForgeLabel}</span>
                     <ChevronDown 
@@ -318,12 +414,17 @@
             </div>
             
             <button
-            class="w-full bg-black dark:bg-white text-white dark:text-black py-2.5 px-4 rounded-sm font-bold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
-            onclick={installModLoader}
-            disabled={isLoading || !selectedForgeVersion}
+                class="w-full bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 px-4 rounded-sm font-bold text-sm transition-all flex items-center justify-center gap-2"
+                onclick={installModLoader}
+                disabled={isInstalling || !selectedForgeVersion}
             >
-            <Download size={16} />
-            Install Forge
+                {#if isInstalling}
+                    <Loader2 class="animate-spin" size={16} />
+                    Installing...
+                {:else}
+                    <Download size={16} />
+                    Install Forge {selectedForgeVersion}
+                {/if}
             </button>
         {/if}
         </div>
