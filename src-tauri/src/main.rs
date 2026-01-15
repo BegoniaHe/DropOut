@@ -1296,6 +1296,94 @@ async fn list_installed_fabric_versions(window: Window) -> Result<Vec<String>, S
         .map_err(|e| e.to_string())
 }
 
+/// Installed version info
+#[derive(serde::Serialize)]
+struct InstalledVersion {
+    id: String,
+    #[serde(rename = "type")]
+    version_type: String, // "release", "snapshot", "fabric", "forge"
+}
+
+/// List all installed versions from the data directory
+#[tauri::command]
+async fn list_installed_versions(window: Window) -> Result<Vec<InstalledVersion>, String> {
+    let app_handle = window.app_handle();
+    let game_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    let versions_dir = game_dir.join("versions");
+    let mut installed = Vec::new();
+
+    if !versions_dir.exists() {
+        return Ok(installed);
+    }
+
+    let mut entries = tokio::fs::read_dir(&versions_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let version_dir = entry.path();
+
+        // Check if the version has a valid JSON file
+        let json_path = version_dir.join(format!("{}.json", name));
+        if !json_path.exists() {
+            continue;
+        }
+
+        // Check if client.jar exists (for vanilla versions)
+        let jar_path = version_dir.join(format!("{}.jar", name));
+        let has_jar = jar_path.exists();
+
+        // Determine version type
+        let version_type = if name.starts_with("fabric-loader-") {
+            // Fabric versions don't need their own jar, they inherit from vanilla
+            "fabric".to_string()
+        } else if name.contains("-forge-") {
+            "forge".to_string()
+        } else if has_jar {
+            // Read the JSON to determine if it's release or snapshot
+            if let Ok(content) = tokio::fs::read_to_string(&json_path).await {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    json.get("type")
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("release")
+                        .to_string()
+                } else {
+                    "release".to_string()
+                }
+            } else {
+                "release".to_string()
+            }
+        } else {
+            // JSON exists but no jar - skip incomplete installations
+            continue;
+        };
+
+        installed.push(InstalledVersion {
+            id: name,
+            version_type,
+        });
+    }
+
+    // Sort: modded first, then by version id descending
+    installed.sort_by(|a, b| {
+        let a_modded = a.version_type == "fabric" || a.version_type == "forge";
+        let b_modded = b.version_type == "fabric" || b.version_type == "forge";
+        
+        match (a_modded, b_modded) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => b.id.cmp(&a.id), // Descending order
+        }
+    });
+
+    Ok(installed)
+}
+
 /// Check if Fabric is installed for a specific version
 #[tauri::command]
 async fn is_fabric_installed(
@@ -1531,6 +1619,7 @@ fn main() {
             get_versions,
             check_version_installed,
             install_version,
+            list_installed_versions,
             login_offline,
             get_active_account,
             logout,
