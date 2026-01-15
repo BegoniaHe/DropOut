@@ -1,7 +1,10 @@
 <script lang="ts">
-  import { convertFileSrc } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
   import { settingsState } from "../stores/settings.svelte";
+
+  // Use convertFileSrc directly from settingsState.backgroundUrl for cleaner approach
+  // or use the imported one if passing raw path.
+  import { convertFileSrc } from "@tauri-apps/api/core";
 
   async function selectBackground() {
     try {
@@ -55,6 +58,10 @@
                   src={convertFileSrc(settingsState.settings.custom_background_path)}
                   alt="Background Preview"
                   class="w-full h-full object-cover"
+                  onerror={(e) => {
+                    console.error("Failed to load image:", settingsState.settings.custom_background_path, e);
+                    // e.currentTarget.style.display = 'none'; 
+                  }}
                 />
               {:else}
                 <div class="w-full h-full bg-gradient-to-br from-emerald-900 via-zinc-900 to-indigo-950 opacity-100"></div>
@@ -113,7 +120,7 @@
                         aria-labelledby="theme-effect-label"
                         bind:value={settingsState.settings.active_effect}
                         onchange={() => settingsState.saveSettings()}
-                        class="dark:bg-black/40 bg-white dark:text-white text-black text-xs px-3 py-2 rounded-lg border dark:border-white/10 border-black/10 outline-none focus:border-indigo-500/50 appearance-none cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                        class="dark:bg-zinc-900 bg-white dark:text-white text-black text-xs px-3 py-2 pr-8 rounded-lg border dark:border-zinc-700 border-gray-300 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 cursor-pointer hover:border-zinc-600 transition-colors"
                     >
                         <option value="saturn">Saturn (Saturn)</option>
                         <option value="constellation">Network (Constellation)</option>
@@ -290,6 +297,42 @@
               class="bg-black/40 text-white w-full px-4 py-3 rounded-xl border border-white/10 focus:border-indigo-500/50 outline-none transition-colors"
             />
             <p class="text-xs text-white/30 mt-2">Higher values usually mean faster downloads but use more CPU/Network.</p>
+        </div>
+    </div>
+
+    <!-- Debug / Logs -->
+    <div class="dark:bg-[#09090b] bg-white p-6 rounded-sm border dark:border-white/10 border-gray-200 shadow-sm">
+        <h3 class="text-xs font-bold uppercase tracking-widest text-white/40 mb-6 flex items-center gap-2">
+            Debug & Logs
+        </h3>
+        <div class="space-y-4">
+            <div>
+                <label for="log-service" class="block text-sm font-medium text-white/70 mb-2">Log Upload Service</label>
+                <select
+                    id="log-service"
+                    bind:value={settingsState.settings.log_upload_service}
+                    class="dark:bg-zinc-900 bg-white dark:text-white text-black w-full px-4 py-3 pr-10 rounded-xl border dark:border-zinc-700 border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none cursor-pointer hover:border-zinc-600 transition-colors"
+                >
+                    <option value="paste.rs">paste.rs (Free, No Account)</option>
+                    <option value="pastebin.com">pastebin.com (Requires API Key)</option>
+                </select>
+            </div>
+
+            {#if settingsState.settings.log_upload_service === 'pastebin.com'}
+                <div>
+                    <label for="pastebin-key" class="block text-sm font-medium text-white/70 mb-2">Pastebin Dev API Key</label>
+                    <input
+                        id="pastebin-key"
+                        type="password"
+                        bind:value={settingsState.settings.pastebin_api_key}
+                        placeholder="Enter your API Key"
+                        class="dark:bg-zinc-900 bg-white dark:text-white text-black w-full px-4 py-3 rounded-xl border dark:border-zinc-700 border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 outline-none transition-colors placeholder:text-zinc-500"
+                    />
+                    <p class="text-xs text-white/30 mt-2">
+                        Get your API key from <a href="https://pastebin.com/doc_api#1" target="_blank" class="text-indigo-400 hover:underline">Pastebin API Documentation</a>.
+                    </p>
+                </div>
+            {/if}
         </div>
     </div>
 
