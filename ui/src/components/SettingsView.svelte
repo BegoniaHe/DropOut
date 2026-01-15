@@ -38,7 +38,7 @@
   <div class="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar pb-10">
 
     <!-- Appearance / Background -->
-    <div class="dark:bg-black/20 bg-white/60 p-6 rounded-2xl border dark:border-white/5 border-black/5 shadow-sm backdrop-blur-sm">
+    <div class="dark:bg-[#09090b] bg-white p-6 rounded-sm border dark:border-white/10 border-gray-200 shadow-sm">
       <h3 class="text-xs font-bold uppercase tracking-widest dark:text-white/40 text-black/40 mb-6 flex items-center gap-2">
         Appearance
       </h3>
@@ -161,7 +161,7 @@
     </div>
 
     <!-- Java Path -->
-    <div class="dark:bg-black/20 bg-white/60 p-6 rounded-2xl border dark:border-white/5 border-black/5 shadow-sm backdrop-blur-sm">
+    <div class="dark:bg-[#09090b] bg-white p-6 rounded-sm border dark:border-white/10 border-gray-200 shadow-sm">
       <h3 class="text-xs font-bold uppercase tracking-widest text-white/40 mb-6 flex items-center gap-2">
         Java Environment
       </h3>
@@ -221,7 +221,7 @@
     </div>
 
     <!-- Memory -->
-    <div class="bg-black/20 p-6 rounded-2xl border border-white/5 ">
+    <div class="dark:bg-[#09090b] bg-white p-6 rounded-sm border dark:border-white/10 border-gray-200 shadow-sm">
       <h3 class="text-xs font-bold uppercase tracking-widest text-white/40 mb-6 flex items-center gap-2">
         Memory Allocation (RAM)
       </h3>
@@ -248,7 +248,7 @@
     </div>
 
     <!-- Resolution -->
-    <div class="bg-black/20 p-6 rounded-2xl border border-white/5 ">
+    <div class="dark:bg-[#09090b] bg-white p-6 rounded-sm border dark:border-white/10 border-gray-200 shadow-sm">
       <h3 class="text-xs font-bold uppercase tracking-widest text-white/40 mb-6 flex items-center gap-2">
         Game Window Size
       </h3>
@@ -275,7 +275,7 @@
     </div>
 
     <!-- Download Settings -->
-    <div class="bg-black/20 p-6 rounded-2xl border border-white/5 ">
+    <div class="dark:bg-[#09090b] bg-white p-6 rounded-sm border dark:border-white/10 border-gray-200 shadow-sm">
         <h3 class="text-xs font-bold uppercase tracking-widest text-white/40 mb-6 flex items-center gap-2">
             Network
         </h3>
