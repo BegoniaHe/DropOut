@@ -1,66 +1,89 @@
 <script lang="ts">
   import { uiState } from '../stores/ui.svelte';
+  import { Home, Package, Settings } from 'lucide-svelte';
 </script>
 
 <aside
-  class="w-20 lg:w-64 bg-zinc-950 flex flex-col items-center lg:items-start transition-all duration-300 border-r border-zinc-800 shrink-0"
+  class="w-20 lg:w-64 dark:bg-[#09090b] bg-white border-r dark:border-white/10 border-gray-200 flex flex-col items-center lg:items-start transition-all duration-300 shrink-0 py-6 z-20"
 >
+  <!-- Logo Area -->
   <div
-    class="h-20 w-full flex items-center justify-center lg:justify-start lg:px-6 border-b border-zinc-800/50"
+    class="h-16 w-full flex items-center justify-center lg:justify-start lg:px-6 mb-6"
   >
-    <!-- Icon Logo (Visible on small) -->
-    <div
-      class="lg:hidden text-2xl font-black bg-clip-text text-transparent bg-gradient-to-tr from-indigo-400 to-purple-400"
-    >
-      D
+    <!-- Icon Logo (Small) -->
+    <div class="lg:hidden text-black dark:text-white">
+      <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M25 25 L50 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        <path d="M25 75 L50 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        <path d="M50 50 L75 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        <circle cx="25" cy="25" r="8" fill="currentColor" stroke="none" />
+        <circle cx="25" cy="50" r="8" fill="currentColor" stroke="none" />
+        <circle cx="25" cy="75" r="8" fill="currentColor" stroke="none" />
+        <circle cx="50" cy="50" r="10" fill="currentColor" stroke="none" />
+        <circle cx="75" cy="50" r="8" fill="currentColor" stroke="none" />
+      </svg>
     </div>
-    <!-- Full Logo (Visible on large) -->
+    <!-- Full Logo (Large) -->
     <div
-      class="hidden lg:block font-bold text-xl tracking-wider text-indigo-400"
+      class="hidden lg:flex items-center gap-3 font-bold text-xl tracking-tighter dark:text-white text-black"
     >
-      DROP<span class="text-white">OUT</span>
+      <!-- Neural Network Dropout Logo -->
+      <svg width="42" height="42" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+        <!-- Lines -->
+        <path d="M25 25 L50 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        <path d="M25 75 L50 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        <path d="M50 50 L75 50" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+        
+        <!-- Input Layer (Left) -->
+        <circle cx="25" cy="25" r="8" fill="currentColor" stroke="none" />
+        <circle cx="25" cy="50" r="8" fill="currentColor" stroke="none" />
+        <circle cx="25" cy="75" r="8" fill="currentColor" stroke="none" />
+
+        <!-- Hidden Layer (Middle) - Dropout visualization -->
+        <!-- Dropped units (dashed) -->
+        <circle cx="50" cy="25" r="7" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2" fill="none" class="opacity-30" />
+        <circle cx="50" cy="75" r="7" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2" fill="none" class="opacity-30" />
+        <!-- Active unit -->
+        <circle cx="50" cy="50" r="10" fill="currentColor" stroke="none" />
+
+        <!-- Output Layer (Right) -->
+        <circle cx="75" cy="50" r="8" fill="currentColor" stroke="none" />
+      </svg>
+      
+      <span>DROPOUT</span>
     </div>
   </div>
 
-  <nav class="flex-1 w-full flex flex-col gap-2 p-3">
-    <button
-      class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 {uiState.currentView ===
-      'home'
-        ? 'bg-zinc-800/80 text-white'
-        : 'text-zinc-400'} transition-all relative"
-      onclick={() => uiState.setView("home")}
-    >
-      <span class="text-xl relative z-10">🏠</span>
-      <span
-        class="hidden lg:block font-medium relative z-10 transition-opacity"
-        >Home</span
+  <!-- Navigation -->
+  <nav class="flex-1 w-full flex flex-col gap-1 px-3">
+    <!-- Nav Item Helper -->
+    {#snippet navItem(view, Icon, label)}
+      <button
+        class="group flex items-center lg:gap-3 justify-center lg:justify-start w-full px-0 lg:px-4 py-2.5 rounded-sm transition-all duration-200 relative
+        {uiState.currentView === view
+          ? 'bg-black/5 dark:bg-white/10 dark:text-white text-black font-medium'
+          : 'dark:text-zinc-400 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}"
+        onclick={() => uiState.setView(view)}
       >
-    </button>
-    <button
-      class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 {uiState.currentView ===
-      'versions'
-        ? 'bg-zinc-800/80 text-white'
-        : 'text-zinc-400'} transition-all"
-      onclick={() => uiState.setView("versions")}
-    >
-      <span class="text-xl">📦</span>
-      <span class="hidden lg:block font-medium">Versions</span>
-    </button>
-    <button
-      class="group flex items-center lg:gap-4 justify-center lg:justify-start w-full px-0 lg:px-4 py-3 rounded-lg hover:bg-zinc-800 {uiState.currentView ===
-      'settings'
-        ? 'bg-zinc-800/80 text-white'
-        : 'text-zinc-400'} transition-all"
-      onclick={() => uiState.setView("settings")}
-    >
-      <span class="text-xl">⚙️</span>
-      <span class="hidden lg:block font-medium">Settings</span>
-    </button>
+        <Icon size={20} strokeWidth={uiState.currentView === view ? 2.5 : 2} />
+        <span class="hidden lg:block text-sm relative z-10">{label}</span>
+        
+        <!-- Active Indicator -->
+        {#if uiState.currentView === view}
+           <div class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-black dark:bg-white rounded-r-full hidden lg:block"></div>
+        {/if}
+      </button>
+    {/snippet}
+
+    {@render navItem('home', Home, 'Overview')}
+    {@render navItem('versions', Package, 'Versions')}
+    {@render navItem('settings', Settings, 'Settings')}
   </nav>
 
+  <!-- Footer Info -->
   <div
-    class="p-4 w-full border-t border-zinc-800 flex justify-center lg:justify-start"
+    class="p-4 w-full flex justify-center lg:justify-start lg:px-6 opacity-40 hover:opacity-100 transition-opacity"
   >
-    <div class="text-xs text-zinc-600 font-mono">v{uiState.appVersion}</div>
+    <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">v{uiState.appVersion}</div>
   </div>
 </aside>

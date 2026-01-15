@@ -9,16 +9,16 @@
 
 {#if authState.isLoginModalOpen}
   <div
-    class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-white/80 dark:bg-black/80 backdrop-blur-sm p-4"
   >
     <div
-      class="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in-0 duration-200"
+      class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-6 w-full max-w-md animate-in fade-in zoom-in-0 duration-200"
     >
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold text-white">Login</h2>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Login</h2>
         <button
           onclick={() => authState.closeLoginModal()}
-          class="text-zinc-500 hover:text-white transition group"
+          class="text-zinc-500 hover:text-black dark:hover:text-white transition group"
         >
           ✕
         </button>
@@ -28,7 +28,7 @@
         <div class="space-y-4">
           <button
             onclick={() => authState.startMicrosoftLogin()}
-            class="w-full flex items-center justify-center gap-3 bg-[#2F2F2F] hover:bg-[#3F3F3F] text-white p-4 rounded-lg font-bold border border-transparent hover:border-zinc-500 transition-all group"
+            class="w-full flex items-center justify-center gap-3 bg-gray-100 hover:bg-gray-200 dark:bg-[#2F2F2F] dark:hover:bg-[#3F3F3F] text-gray-900 dark:text-white p-4 rounded-lg font-bold border border-transparent hover:border-zinc-400 dark:hover:border-zinc-500 transition-all group"
           >
             <!-- Microsoft Logo SVG -->
             <svg
@@ -49,10 +49,10 @@
 
           <div class="relative py-2">
             <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-zinc-700"></div>
+              <div class="w-full border-t border-zinc-200 dark:border-zinc-700"></div>
             </div>
             <div class="relative flex justify-center text-xs uppercase">
-              <span class="bg-zinc-900 px-2 text-zinc-500">OR</span>
+              <span class="bg-white dark:bg-zinc-900 px-2 text-zinc-400 dark:text-zinc-500">OR</span>
             </div>
           </div>
 
@@ -61,12 +61,12 @@
               type="text"
               bind:value={authState.offlineUsername}
               placeholder="Offline Username"
-              class="w-full bg-zinc-950 border border-zinc-700 rounded p-3 text-white focus:border-indigo-500 outline-none"
+              class="w-full bg-gray-50 border-zinc-200 dark:bg-zinc-950 dark:border-zinc-700 rounded p-3 text-gray-900 dark:text-white focus:border-indigo-500 outline-none"
               onkeydown={(e) => e.key === "Enter" && authState.performOfflineLogin()}
             />
             <button
               onclick={() => authState.performOfflineLogin()}
-              class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 p-3 rounded font-medium transition-colors"
+              class="w-full bg-gray-200 hover:bg-gray-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-300 p-3 rounded font-medium transition-colors"
             >
               Offline Login
             </button>
@@ -80,18 +80,18 @@
             </div>
           {:else if authState.deviceCodeData}
             <div class="space-y-4">
-              <p class="text-sm text-zinc-400">1. Go to this URL:</p>
+              <p class="text-sm text-gray-500 dark:text-zinc-400">1. Go to this URL:</p>
               <button
                 onclick={() =>
                     authState.deviceCodeData && openLink(authState.deviceCodeData.verification_uri)}
-                class="text-indigo-400 hover:text-indigo-300 underline break-all font-mono text-sm"
+                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 underline break-all font-mono text-sm"
               >
                 {authState.deviceCodeData.verification_uri}
               </button>
 
-              <p class="text-sm text-zinc-400 mt-2">2. Enter this code:</p>
+              <p class="text-sm text-gray-500 dark:text-zinc-400 mt-2">2. Enter this code:</p>
               <div
-                class="bg-zinc-950 p-4 rounded border border-zinc-700 font-mono text-2xl tracking-widest text-center select-all cursor-pointer hover:border-indigo-500 transition-colors"
+                class="bg-gray-50 dark:bg-zinc-950 p-4 rounded border border-zinc-200 dark:border-zinc-700 font-mono text-2xl tracking-widest text-center select-all cursor-pointer hover:border-indigo-500 transition-colors dark:text-white text-gray-900"
                 role="button"
                 tabindex="0"
                 onkeydown={(e) => e.key === 'Enter' && navigator.clipboard.writeText(authState.deviceCodeData?.user_code || "")}
@@ -106,8 +106,8 @@
 
               <div class="pt-6 space-y-3">
                    <div class="flex flex-col items-center gap-3">
-                       <div class="animate-spin rounded-full h-6 w-6 border-2 border-zinc-600 border-t-indigo-500"></div>
-                       <span class="text-sm text-zinc-400 font-medium break-all text-center">{authState.msLoginStatus}</span>
+                       <div class="animate-spin rounded-full h-6 w-6 border-2 border-zinc-300 dark:border-zinc-600 border-t-indigo-500"></div>
+                       <span class="text-sm text-gray-600 dark:text-zinc-400 font-medium break-all text-center">{authState.msLoginStatus}</span>
                    </div>
                    <p class="text-xs text-zinc-600">This window will update automatically.</p>
               </div>

@@ -7,6 +7,10 @@ export class GameState {
   versions = $state<Version[]>([]);
   selectedVersion = $state("");
 
+  get latestRelease() {
+    return this.versions.find((v) => v.type === "release");
+  }
+
   async loadVersions() {
     try {
       this.versions = await invoke<Version[]>("get_versions");

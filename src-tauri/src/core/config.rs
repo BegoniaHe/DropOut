@@ -13,6 +13,13 @@ pub struct LauncherConfig {
     pub width: u32,
     pub height: u32,
     pub download_threads: u32, // concurrent download threads (1-128)
+    pub custom_background_path: Option<String>,
+    pub enable_gpu_acceleration: bool,
+    pub enable_visual_effects: bool,
+    pub active_effect: String,
+    pub theme: String,
+    pub log_upload_service: String, // "paste.rs" or "pastebin.com"
+    pub pastebin_api_key: Option<String>,
 }
 
 impl Default for LauncherConfig {
@@ -24,6 +31,13 @@ impl Default for LauncherConfig {
             width: 854,
             height: 480,
             download_threads: 32,
+            custom_background_path: None,
+            enable_gpu_acceleration: false,
+            enable_visual_effects: true,
+            active_effect: "constellation".to_string(),
+            theme: "dark".to_string(),
+            log_upload_service: "paste.rs".to_string(),
+            pastebin_api_key: None,
         }
     }
 }
