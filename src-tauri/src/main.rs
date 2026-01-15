@@ -2,7 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::Stdio;
-use std::ptr::null;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, Window}; // Added Emitter
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -291,6 +290,7 @@ async fn start_game(
     #[derive(serde::Deserialize, Debug)]
     struct AssetObject {
         hash: String,
+        #[allow(dead_code)]
         size: u64,
     }
 
@@ -826,7 +826,7 @@ async fn refresh_account(
         .map_err(|e| e.to_string())?;
     let storage = core::account_storage::AccountStorage::new(app_dir.clone());
 
-    let (stored_account, ms_refresh) = storage
+    let (_stored_account, ms_refresh) = storage
         .get_active_account()
         .ok_or("No active account found")?;
 
