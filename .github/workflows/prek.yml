@@ -35,12 +35,10 @@ jobs:
             librsvg2-dev \
             pkg-config
       
-      - name: Run prek (auto-fix)
+      - name: Run prek
         id: prek
         uses: j178/prek-action@v1
         continue-on-error: true
-        with:
-          all_files: true
 
       - name: Check for changes
         id: check_changes
