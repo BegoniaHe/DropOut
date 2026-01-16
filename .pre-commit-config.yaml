@@ -1,7 +1,12 @@
 minimum_prek_version: '0.2.28'
 
+ci:
+  autofix_prs: true
+  autofix_commit_msg: "[pre-commit.ci] auto fixes from pre-commit hooks [skip ci]"
+
 repos:
-  - repo: builtin
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
       - id: check-json
         exclude: ^ui/tsconfig.*\.json$
@@ -12,10 +17,6 @@ repos:
       - id: end-of-file-fixer
       - id: check-merge-conflict
       - id: detect-private-key
-
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
       - id: check-ast
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
