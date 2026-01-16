@@ -1,4 +1,5 @@
 pub mod zip;
+pub mod path;
 
 // File system related utility functions
 #[allow(dead_code)]

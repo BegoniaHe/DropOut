@@ -526,12 +526,28 @@ async fn start_game(
         emit_log!(window, format!("Java Args: {:?}", &args));
     }
 
+    // Get Java path from config or detect
+    let java_path_str = if !config.java_path.is_empty() && config.java_path != "java" {
+        config.java_path.clone()
+    } else {
+        // Try to find a suitable Java installation
+        let javas = core::java::detect_all_java_installations(&app_handle);
+        if let Some(java) = javas.first() {
+            java.path.clone()
+        } else {
+            return Err(
+                "No Java installation found. Please configure Java in settings.".to_string(),
+            );
+        }
+    };
+    let java_path = utils::path::normalize_java_path(&java_path_str)?;
+
     // Spawn the process
     emit_log!(
         window,
-        format!("Starting Java process: {}", config.java_path)
+        format!("Starting Java process: {}", java_path.display())
     );
-    let mut command = Command::new(&config.java_path);
+    let mut command = Command::new(&java_path);
     command.args(&args);
     command.current_dir(&game_dir); // Run in game directory
     command.stdout(Stdio::piped());
@@ -551,7 +567,7 @@ async fn start_game(
     // Spawn and handle output
     let mut child = command
         .spawn()
-        .map_err(|e| format!("Failed to launch java: {}", e))?;
+        .map_err(|e| format!("Failed to launch Java at '{}': {}\nPlease check your Java installation and path configuration in Settings.", java_path.display(), e))?;
 
     emit_log!(window, "Java process started successfully".to_string());
 
@@ -1540,7 +1556,7 @@ async fn install_forge(
             );
         }
     };
-    let java_path = std::path::PathBuf::from(&java_path_str);
+    let java_path = utils::path::normalize_java_path(&java_path_str)?;
 
     emit_log!(window, "Running Forge installer...".to_string());
 
