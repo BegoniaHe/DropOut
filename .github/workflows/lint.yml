@@ -1,4 +1,4 @@
-name: UI Auto Fix
+name: UI Auto Lint
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
     paths:
       - "ui/**"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   fix:
