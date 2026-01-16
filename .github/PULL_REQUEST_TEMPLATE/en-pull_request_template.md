@@ -16,6 +16,14 @@
 - [ ] Configuration change
 - [ ] Test addition or update
 
+## LLM-Generated Code Disclosure
+
+<!-- If this PR contains LLM-generated code, please disclose it here -->
+
+- [ ] This PR contains LLM-generated code, and I **provide** quality assurance
+- [ ] This PR contains LLM-generated code, and I **do not provide** quality assurance
+- [ ] This PR does not contain LLM-generated code
+
 ## Related Issues
 
 <!-- Link to related issues using #issue_number -->
