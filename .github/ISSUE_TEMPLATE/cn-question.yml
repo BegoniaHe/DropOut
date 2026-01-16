@@ -1,0 +1,87 @@
+name: 问题咨询（中文）
+description: 询问关于使用 DropOut 的问题
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        有关于使用 DropOut 的问题吗？请填写以下表单。
+        
+        **注意：** 如果是 Bug 报告，请使用 Bug 反馈模板。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 前置确认
+      description: 请确认自己完成了下列项目之后再进行勾选，若勾选了"我未仔细阅读"选项将视为自愿接受被直接关闭 Issue
+      options:
+        - label: 我理解 Issue 是用于提问和获取帮助的，而非吐槽评论区
+          required: false
+        - label: 我未仔细阅读这些内容，只是一键已读所有内容，并相信这不会影响问题的处理
+          required: false
+        - label: 我已搜索现有 Issue，查看是否有人已经回答了我的问题
+          required: false
+        - label: 我已阅读 README 和文档
+          required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 问题类别
+      description: 您的问题是关于什么的？
+      options:
+        - 安装和设置
+        - 账户和认证
+        - Minecraft 版本管理
+        - Mod 加载器（Fabric/Forge）
+        - Java 安装和配置
+        - 游戏启动问题
+        - 设置和配置
+        - 从源代码构建
+        - 为项目做贡献
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 您的问题
+      description: 请详细描述您的问题
+      placeholder: 您想了解什么？
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DropOut 版本（如果适用）
+      description: 您正在使用的 DropOut 版本是？
+      placeholder: "例如：0.1.23"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统（如果适用）
+      description: 您使用的操作系统是？
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - 不适用
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 其他信息
+      description: 添加任何其他可能帮助我们回答您问题的上下文、截图或信息
+      placeholder: 任何额外的细节...
+    validations:
+      required: false

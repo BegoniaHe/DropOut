@@ -1,0 +1,211 @@
+name: Bug 反馈（中文）
+description: 报告 DropOut Minecraft 启动器的错误或问题
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢您花时间报告 Bug！请填写以下表单以帮助我们理解和修复问题。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 前置确认
+      description: 请确认自己完成了下列项目之后再进行勾选，若未完成必选项或勾选了"我未仔细阅读"选项将视为自愿接受被直接关闭 Issue
+      options:
+        - label: 我理解 Issue 是用于反馈和解决问题的，而非吐槽评论区，将尽可能提供更多信息帮助问题解决
+          required: false
+        - label: 我未仔细阅读这些内容，只是一键已读所有内容，并相信这不会影响问题的处理
+          required: false
+        - label: 我填写了简短且清晰明确的标题，以便开发者在翻阅 Issue 列表时能快速确定大致问题，而不是"一个建议"、"卡住了"等
+          required: false
+        - label: 我已搜索现有 Issue，确认这不是重复问题
+          required: false
+        - label: 我正在使用最新版本的 DropOut
+          required: false
+        - label: 我已阅读 README 和文档
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: DropOut 版本
+      description: 您正在使用的 DropOut 版本是？
+      placeholder: "例如：0.1.23"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      description: 您使用的操作系统是？
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows 8/8.1
+        - Windows 7
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux (Debian/Ubuntu)
+        - Linux (Arch)
+        - Linux (Fedora/RHEL)
+        - 其他 Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: 操作系统版本
+      description: 操作系统的具体版本号
+      placeholder: "例如：Windows 11 23H2, macOS 14.2, Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: minecraft-version
+    attributes:
+      label: Minecraft 版本
+      description: 您尝试启动的 Minecraft 版本是？
+      options:
+        - "1.21.x"
+        - "1.20.x"
+        - "1.19.x"
+        - "1.18.x"
+        - "1.17.x"
+        - "1.16.x"
+        - "1.12.x"
+        - 其他（请在描述中说明）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mod-loader
+    attributes:
+      label: Mod 加载器
+      description: 您是否使用了 Mod 加载器？
+      options:
+        - 无（原版）
+        - Fabric
+        - Forge
+        - 不适用
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: Java 版本
+      description: 您使用的 Java 版本是？
+      placeholder: "例如：Java 21.0.1, Java 17.0.9, Java 8u381"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: java-source
+    attributes:
+      label: Java 来源
+      description: 您的 Java 来自哪里？
+      options:
+        - DropOut 自动检测
+        - 通过 DropOut 下载
+        - 手动安装 (Oracle)
+        - 手动安装 (Sdkman)
+        - 手动安装 (Homebrew)
+        - 手动安装 (Chocolatey)
+        - 手动安装 (其他)
+        - 未知
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰简洁地描述这个 Bug 是什么
+      placeholder: 描述您遇到的问题...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 复现该问题的步骤
+      placeholder: |
+        1. 打开 '...'
+        2. 点击 '...'
+        3. 滚动到 '...'
+        4. 出现错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 您期望发生什么？
+      placeholder: 描述您期望发生的事情...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么？
+      placeholder: 描述实际发生的事情...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志和错误信息
+      description: |
+        请从 DropOut 启动器终端上传日志文件，然后在此粘贴日志链接。
+        
+        **如何上传日志：**
+        1. 在 DropOut 启动器中打开终端
+        2. 使用内置的日志上传功能
+        3. 复制生成的日志链接并粘贴到下方
+        
+        如果无法使用自动上传，可以手动从以下位置获取日志：
+        - **macOS**: `$HOME/Library/Application Support/com.dropout.launcher/logs`
+        - **Linux**: `$HOME/.local/share/com.dropout.launcher`
+      placeholder: |
+        粘贴日志链接或日志内容...
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图或录屏
+      description: |
+        如果适用，请添加截图或录屏以帮助说明您的问题。
+        
+        **截图要求：**
+        - 使用系统自带截图工具（Windows: `Win+Shift+S`, macOS: `Cmd+Shift+4`, Linux: `gnome-screenshot`/`spectacle`）
+        - 不要使用 QQ/微信/Discord 截图工具，它们可能改变分辨率和纵横比
+        - 提供无遮挡的原始图片，避免窗口边框或覆盖层
+        - 对于游戏问题，请捕获实际游戏窗口
+        - 保持原始分辨率和 DPI
+        
+        可以在上传前压缩大文件。
+      placeholder: 拖放图片到这里或粘贴图片 URL
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 其他信息
+      description: 在此添加关于该问题的任何其他信息
+      placeholder: 任何可能有帮助的额外信息...
+    validations:
+      required: false

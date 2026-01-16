@@ -1,0 +1,118 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for DropOut
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please fill out the form below to help us understand your request.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed the following before submitting. Issues that check "I have not read carefully" may be closed immediately.
+      options:
+        - label: I understand that Issues are for feedback and problem-solving, not for complaints. I will provide as much information as possible.
+          required: false
+        - label: I have not read carefully and just clicked through everything, believing this won't affect issue handling.
+          required: false
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: false
+        - label: I have checked the roadmap in the README
+          required: false
+        - label: This feature would benefit multiple users, not just myself
+          required: false
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you requesting?
+      options:
+        - UI/UX Enhancement
+        - Game Management
+        - Mod Loader Support
+        - Account Management
+        - Java Management
+        - Performance Improvement
+        - New Platform Support
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see
+      placeholder: A clear and concise description of what you want to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Describe any alternative solutions or features you've considered
+      placeholder: Are there other ways to solve this problem?
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples and References
+      description: |
+        Provide examples from other launchers or applications that implement similar features
+      placeholder: |
+        - MultiMC does this by...
+        - Prism Launcher has a similar feature...
+        - This could work like [example link]...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (blocks normal usage)
+        - High (significantly improves experience)
+        - Medium (nice to have)
+        - Low (minor convenience)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to contribute to this feature?
+      options:
+        - label: I would be willing to implement this feature
+        - label: I would be willing to help test this feature
+        - label: I can provide design mockups or specifications
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, or screenshots about the feature request here
+      placeholder: Any additional information that might be helpful...
+    validations:
+      required: false

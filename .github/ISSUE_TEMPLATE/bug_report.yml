@@ -1,0 +1,211 @@
+name: Bug Report
+description: Report a bug or issue with DropOut Minecraft Launcher
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug! Please fill out the form below to help us understand and fix the issue.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed the following before submitting. Issues that check "I have not read carefully" or fail to meet required items may be closed immediately.
+      options:
+        - label: I understand that Issues are for reporting and solving problems, not for comments or complaints. I will provide as much information as possible to help resolve the issue.
+          required: false
+        - label: I have not read carefully and just clicked through everything, believing this won't affect issue handling.
+          required: false
+        - label: I have filled in a short and clear title so that developers can quickly identify the issue when browsing the Issue list, rather than "a suggestion" or "stuck" etc.
+          required: false
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: false
+        - label: I am using the latest version of DropOut
+          required: false
+        - label: I have read the README and documentation
+          required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: DropOut Version
+      description: What version of DropOut are you using?
+      placeholder: "e.g., 0.1.23"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using?
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows 8,8.1
+        - Windows 7
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux (Debian/Ubuntu)
+        - Linux (Arch)
+        - Linux (Fedora/RHEL)
+        - Other Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS Version
+      description: Specific version of your operating system
+      placeholder: "e.g., Windows 11 23H2, macOS 14.2, Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: minecraft-version
+    attributes:
+      label: Minecraft Version
+      description: Which Minecraft version are you trying to launch?
+      options:
+        - "1.21.x"
+        - "1.20.x"
+        - "1.19.x"
+        - "1.18.x"
+        - "1.17.x"
+        - "1.16.x"
+        - "1.12.x"
+        - Other (specify in description)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mod-loader
+    attributes:
+      label: Mod Loader
+      description: Are you using a mod loader?
+      options:
+        - None (Vanilla)
+        - Fabric
+        - Forge
+        - Not applicable
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: Java Version
+      description: Which Java version are you using?
+      placeholder: "e.g., Java 21.0.1, Java 17.0.9, Java 8u381"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: java-source
+    attributes:
+      label: Java Source
+      description: Where did you get Java from?
+      options:
+        - Auto-detected by DropOut
+        - Downloaded via DropOut
+        - Manually installed (Oracle)
+        - Manually installed (Sdkman)
+        - Manually installed (Homebrew)
+        - Manually installed (Chocolatey)
+        - Manually installed (Other)
+        - Unknown
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the issue you're experiencing...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what you expected to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Error Messages
+      description: |
+        Please upload log files from the DropOut launcher terminal, then paste the log link here.
+        
+        **How to upload logs:**
+        1. Open the terminal in DropOut launcher
+        2. Use the built-in log upload feature
+        3. Copy the generated log link and paste it below
+        
+        If automatic upload is unavailable, you can manually retrieve logs from:
+        - **macOS**: `$HOME/Library/Application Support/com.dropout.launcher/logs`
+        - **Linux**: `$HOME/.local/share/com.dropout.launcher`
+      placeholder: |
+        Paste log link or log content...
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Screen Recordings
+      description: |
+        If applicable, add screenshots or screen recordings to help explain your problem.
+        
+        **Screenshot Requirements:**
+        - Use native screenshot tools (Windows: `Win+Shift+S`, macOS: `Cmd+Shift+4`, Linux: `gnome-screenshot`/`spectacle`)
+        - DO NOT use QQ/WeChat/Discord screenshot tools as they may alter resolution and aspect ratio
+        - Provide unobstructed original images, avoid window borders or overlays
+        - For game-related issues, capture the actual game window
+        - Keep the original resolution and DPI
+        
+        You can compress large files before uploading.
+      placeholder: Drag and drop images here or paste image URLs
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: Any additional information that might be helpful...
+    validations:
+      required: false

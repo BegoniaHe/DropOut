@@ -1,0 +1,87 @@
+name: Question
+description: Ask a question about using DropOut
+title: "[Question]: "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about using DropOut? Please fill out the form below.
+        
+        **Note:** For bug reports, please use the Bug Report template instead.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed the following before submitting. Issues that check "I have not read carefully" may be closed immediately.
+      options:
+        - label: I understand that Issues are for asking questions and getting help, not for complaints.
+          required: false
+        - label: I have not read carefully and just clicked through everything, believing this won't affect issue handling.
+          required: false
+        - label: I have searched existing issues to see if my question has been answered
+          required: false
+        - label: I have read the README and documentation
+          required: false
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation and Setup
+        - Account and Authentication
+        - Minecraft Version Management
+        - Mod Loaders (Fabric/Forge)
+        - Java Installation and Configuration
+        - Game Launch Issues
+        - Settings and Configuration
+        - Building from Source
+        - Contributing to the Project
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: Please describe your question in detail
+      placeholder: What would you like to know?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DropOut Version (if applicable)
+      description: What version of DropOut are you using?
+      placeholder: "e.g., 0.1.23"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System (if applicable)
+      description: Which operating system are you using?
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Not applicable
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or information that might help us answer your question
+      placeholder: Any additional details...
+    validations:
+      required: false
