@@ -66,20 +66,24 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install Node.js
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install pnpm
+        if: github.event_name == 'workflow_dispatch'
         uses: pnpm/action-setup@v2
         with:
           version: 9
 
       - name: Install Frontend Dependencies
+        if: github.event_name == 'workflow_dispatch'
         working-directory: ./ui
         run: pnpm install
 
       - name: Install Tauri CLI
+        if: github.event_name == 'workflow_dispatch'
         run: cargo install tauri-cli
 
       - name: Rust Cache
@@ -91,15 +95,22 @@ jobs:
         working-directory: ./src-tauri
         run: cargo test --verbose
 
+      - name: Build Rust Only (Push/PR)
+        if: github.event_name != 'workflow_dispatch'
+        working-directory: ./src-tauri
+        run: cargo build --verbose
+
       - name: Build App (Debug)
+        if: github.event_name == 'workflow_dispatch'
         run: cargo tauri build --debug
 
       - name: Get Short SHA
+        if: github.event_name == 'workflow_dispatch'
         id: slug
         run: echo "sha8=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_OUTPUT
 
       - name: Upload Artifact (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: dropout-linux-${{ matrix.wayland && 'arch' || 'ubuntu' }}-${{ steps.slug.outputs.sha8 }}
@@ -110,7 +121,7 @@ jobs:
           retention-days: 5
 
       - name: Upload Artifact (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: dropout-windows-${{ steps.slug.outputs.sha8 }}
@@ -121,7 +132,7 @@ jobs:
           retention-days: 5
 
       - name: Upload Artifact (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: dropout-macos-${{ steps.slug.outputs.sha8 }}
