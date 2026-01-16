@@ -881,6 +881,64 @@ pub fn get_recommended_java(required_major_version: Option<u64>) -> Option<JavaI
     }
 }
 
+/// Get compatible Java for a specific Minecraft version with upper bound
+/// For older Minecraft versions (1.13.x and below), we need Java 8 specifically
+/// as newer Java versions have compatibility issues with old Forge versions
+pub fn get_compatible_java(
+    app_handle: &AppHandle,
+    required_major_version: Option<u64>,
+    max_major_version: Option<u32>,
+) -> Option<JavaInstallation> {
+    let installations = detect_all_java_installations(app_handle);
+
+    if let Some(max_version) = max_major_version {
+        // Find Java version within the acceptable range
+        installations.into_iter().find(|java| {
+            let major = parse_java_version(&java.version);
+            let meets_min = if let Some(required) = required_major_version {
+                major >= required as u32
+            } else {
+                true
+            };
+            meets_min && major <= max_version
+        })
+    } else if let Some(required) = required_major_version {
+        // Find exact match or higher (no upper bound)
+        installations.into_iter().find(|java| {
+            let major = parse_java_version(&java.version);
+            major >= required as u32
+        })
+    } else {
+        // Return newest
+        installations.into_iter().next()
+    }
+}
+
+/// Check if a Java installation is compatible with the required version range
+pub fn is_java_compatible(
+    java_path: &str,
+    required_major_version: Option<u64>,
+    max_major_version: Option<u32>,
+) -> bool {
+    let java_path_buf = PathBuf::from(java_path);
+    if let Some(java) = check_java_installation(&java_path_buf) {
+        let major = parse_java_version(&java.version);
+        let meets_min = if let Some(required) = required_major_version {
+            major >= required as u32
+        } else {
+            true
+        };
+        let meets_max = if let Some(max_version) = max_major_version {
+            major <= max_version
+        } else {
+            true
+        };
+        meets_min && meets_max
+    } else {
+        false
+    }
+}
+
 /// Detect all installed Java versions (including system installations and DropOut downloads)
 pub fn detect_all_java_installations(app_handle: &AppHandle) -> Vec<JavaInstallation> {
     let mut installations = detect_java_installations();

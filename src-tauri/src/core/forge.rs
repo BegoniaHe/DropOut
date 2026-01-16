@@ -16,6 +16,7 @@ use std::path::PathBuf;
 const FORGE_PROMOTIONS_URL: &str =
     "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json";
 const FORGE_MAVEN_URL: &str = "https://maven.minecraftforge.net/";
+const FORGE_FILES_URL: &str = "https://files.minecraftforge.net/";
 
 /// Represents a Forge version entry.
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -180,27 +181,93 @@ pub fn generate_version_id(game_version: &str, forge_version: &str) -> String {
     format!("{}-forge-{}", game_version, forge_version)
 }
 
+/// Try to download the Forge installer from multiple possible URL formats.
+/// This is necessary because older Forge versions use different URL patterns.
+async fn try_download_forge_installer(
+    game_version: &str,
+    forge_version: &str,
+) -> Result<bytes::Bytes, Box<dyn Error + Send + Sync>> {
+    let forge_full = format!("{}-{}", game_version, forge_version);
+    // For older versions (like 1.7.10), the URL needs an additional -{game_version} suffix
+    let forge_full_with_suffix = format!("{}-{}", forge_full, game_version);
+
+    // Try different URL formats for different Forge versions
+    // Order matters: try most common formats first, then fallback to alternatives
+    let url_patterns = vec![
+        // Standard Maven format (for modern versions): forge/{game_version}-{forge_version}/forge-{game_version}-{forge_version}-installer.jar
+        format!(
+            "{}net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            FORGE_MAVEN_URL, forge_full, forge_full
+        ),
+        // Old version format with suffix (for versions like 1.7.10): forge/{game_version}-{forge_version}-{game_version}/forge-{game_version}-{forge_version}-{game_version}-installer.jar
+        // This is the correct format for 1.7.10 and similar old versions
+        format!(
+            "{}net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            FORGE_MAVEN_URL, forge_full_with_suffix, forge_full_with_suffix
+        ),
+        // Files.minecraftforge.net format with suffix (for old versions like 1.7.10)
+        format!(
+            "{}maven/net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            FORGE_FILES_URL, forge_full_with_suffix, forge_full_with_suffix
+        ),
+        // Files.minecraftforge.net standard format (for older versions)
+        format!(
+            "{}maven/net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            FORGE_FILES_URL, forge_full, forge_full
+        ),
+        // Alternative Maven format
+        format!(
+            "{}net/minecraftforge/forge/{}-{}/forge-{}-{}-installer.jar",
+            FORGE_MAVEN_URL, game_version, forge_version, game_version, forge_version
+        ),
+        // Alternative files format
+        format!(
+            "{}maven/net/minecraftforge/forge/{}-{}/forge-{}-{}-installer.jar",
+            FORGE_FILES_URL, game_version, forge_version, game_version, forge_version
+        ),
+    ];
+
+    let mut last_error = None;
+    for url in url_patterns {
+        println!("Trying Forge installer URL: {}", url);
+        match reqwest::get(&url).await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.bytes().await {
+                        Ok(bytes) => {
+                            println!("Successfully downloaded Forge installer from: {}", url);
+                            return Ok(bytes);
+                        }
+                        Err(e) => {
+                            last_error = Some(format!("Failed to read response body: {}", e));
+                            continue;
+                        }
+                    }
+                } else {
+                    last_error = Some(format!("HTTP {}: {}", response.status(), url));
+                    continue;
+                }
+            }
+            Err(e) => {
+                last_error = Some(format!("Request failed: {}", e));
+                continue;
+            }
+        }
+    }
+
+    Err(format!(
+        "Failed to download Forge installer from any URL. Last error: {}",
+        last_error.unwrap_or_else(|| "Unknown error".to_string())
+    )
+    .into())
+}
+
 /// Fetch the Forge installer manifest to get the library list
 async fn fetch_forge_installer_manifest(
     game_version: &str,
     forge_version: &str,
 ) -> Result<ForgeInstallerManifest, Box<dyn Error + Send + Sync>> {
-    let forge_full = format!("{}-{}", game_version, forge_version);
-
-    // Download the installer JAR to extract version.json
-    let installer_url = format!(
-        "{}net/minecraftforge/forge/{}/forge-{}-installer.jar",
-        FORGE_MAVEN_URL, forge_full, forge_full
-    );
-
-    println!("Fetching Forge installer from: {}", installer_url);
-
-    let response = reqwest::get(&installer_url).await?;
-    if !response.status().is_success() {
-        return Err(format!("Failed to download Forge installer: {}", response.status()).into());
-    }
-
-    let bytes = response.bytes().await?;
+    let bytes = try_download_forge_installer(game_version, forge_version).await?;
 
     // Extract version.json from the JAR (which is a ZIP file)
     let cursor = std::io::Cursor::new(bytes.as_ref());
@@ -274,23 +341,10 @@ pub async fn run_forge_installer(
     forge_version: &str,
     java_path: &PathBuf,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Download the installer JAR
-    let installer_url = format!(
-        "{}net/minecraftforge/forge/{}-{}/forge-{}-{}-installer.jar",
-        FORGE_MAVEN_URL, game_version, forge_version, game_version, forge_version
-    );
-
     let installer_path = game_dir.join("forge-installer.jar");
 
-    // Download installer
-    let client = reqwest::Client::new();
-    let response = client.get(&installer_url).send().await?;
-
-    if !response.status().is_success() {
-        return Err(format!("Failed to download Forge installer: {}", response.status()).into());
-    }
-
-    let bytes = response.bytes().await?;
+    // Download installer using the same multi-URL approach
+    let bytes = try_download_forge_installer(game_version, forge_version).await?;
     tokio::fs::write(&installer_path, &bytes).await?;
 
     // Run the installer in headless mode

@@ -6,6 +6,8 @@ export interface Version {
   url: string;
   time: string;
   releaseTime: string;
+  javaVersion?: number; // Java major version requirement (e.g., 8, 17, 21)
+  isInstalled?: boolean; // Whether this version is installed locally
 }
 
 export interface Account {

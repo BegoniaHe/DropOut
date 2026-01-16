@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { gameState } from "../stores/game.svelte";
   import ModLoaderSelector from "./ModLoaderSelector.svelte";
 
@@ -9,40 +10,130 @@
   );
 
   // Filter by version type
-  let typeFilter = $state<"all" | "release" | "snapshot" | "modded">("all");
+  let typeFilter = $state<"all" | "release" | "snapshot" | "installed">("all");
 
-  // Installed modded versions
-  let installedFabricVersions = $state<string[]>([]);
+  // Installed modded versions with Java version info (Fabric + Forge)
+  let installedFabricVersions = $state<Array<{ id: string; javaVersion?: number }>>([]);
   let isLoadingModded = $state(false);
 
-  // Load installed modded versions
+  // Load installed modded versions with Java version info (both Fabric and Forge)
   async function loadInstalledModdedVersions() {
     isLoadingModded = true;
     try {
-      installedFabricVersions = await invoke<string[]>(
-        "list_installed_fabric_versions"
+      // Get all installed versions and filter for modded ones (Fabric and Forge)
+      const allInstalled = await invoke<Array<{ id: string; type: string }>>(
+        "list_installed_versions"
       );
+      
+      // Filter for Fabric and Forge versions
+      const moddedIds = allInstalled
+        .filter(v => v.type === "fabric" || v.type === "forge")
+        .map(v => v.id);
+      
+      // Load Java version for each installed modded version
+      const versionsWithJava = await Promise.all(
+        moddedIds.map(async (id) => {
+          try {
+            const javaVersion = await invoke<number | null>(
+              "get_version_java_version",
+              { versionId: id }
+            );
+            return {
+              id,
+              javaVersion: javaVersion ?? undefined,
+            };
+          } catch (e) {
+            console.error(`Failed to get Java version for ${id}:`, e);
+            return { id, javaVersion: undefined };
+          }
+        })
+      );
+      
+      installedFabricVersions = versionsWithJava;
     } catch (e) {
-      console.error("Failed to load installed fabric versions:", e);
+      console.error("Failed to load installed modded versions:", e);
     } finally {
       isLoadingModded = false;
     }
   }
 
-  // Load on mount
+  let versionDeletedUnlisten: UnlistenFn | null = null;
+  let downloadCompleteUnlisten: UnlistenFn | null = null;
+  let versionInstalledUnlisten: UnlistenFn | null = null;
+  let fabricInstalledUnlisten: UnlistenFn | null = null;
+  let forgeInstalledUnlisten: UnlistenFn | null = null;
+
+  // Load on mount and setup event listeners
   $effect(() => {
     loadInstalledModdedVersions();
+    setupEventListeners();
+    return () => {
+      if (versionDeletedUnlisten) {
+        versionDeletedUnlisten();
+      }
+      if (downloadCompleteUnlisten) {
+        downloadCompleteUnlisten();
+      }
+      if (versionInstalledUnlisten) {
+        versionInstalledUnlisten();
+      }
+      if (fabricInstalledUnlisten) {
+        fabricInstalledUnlisten();
+      }
+      if (forgeInstalledUnlisten) {
+        forgeInstalledUnlisten();
+      }
+    };
   });
+
+  async function setupEventListeners() {
+    // Refresh versions when a version is deleted
+    versionDeletedUnlisten = await listen("version-deleted", async () => {
+      await gameState.loadVersions();
+      await loadInstalledModdedVersions();
+    });
+    
+    // Refresh versions when a download completes (version installed)
+    downloadCompleteUnlisten = await listen("download-complete", async () => {
+      await gameState.loadVersions();
+      await loadInstalledModdedVersions();
+    });
+    
+    // Refresh when a version is installed
+    versionInstalledUnlisten = await listen("version-installed", async () => {
+      await gameState.loadVersions();
+      await loadInstalledModdedVersions();
+    });
+    
+    // Refresh when Fabric is installed
+    fabricInstalledUnlisten = await listen("fabric-installed", async () => {
+      await gameState.loadVersions();
+      await loadInstalledModdedVersions();
+    });
+    
+    // Refresh when Forge is installed
+    forgeInstalledUnlisten = await listen("forge-installed", async () => {
+      await gameState.loadVersions();
+      await loadInstalledModdedVersions();
+    });
+  }
 
   // Combined versions list (vanilla + modded)
   let allVersions = $derived(() => {
-    const moddedVersions = installedFabricVersions.map((id) => ({
-      id,
-      type: "fabric",
-      url: "",
-      time: "",
-      releaseTime: new Date().toISOString(),
-    }));
+    const moddedVersions = installedFabricVersions.map((v) => {
+      // Determine type based on version ID
+      const versionType = v.id.startsWith("fabric-loader-") ? "fabric" : 
+                         v.id.includes("-forge-") ? "forge" : "fabric";
+      return {
+        id: v.id,
+        type: versionType,
+        url: "",
+        time: "",
+        releaseTime: new Date().toISOString(),
+        javaVersion: v.javaVersion,
+        isInstalled: true, // Modded versions in the list are always installed
+      };
+    });
     return [...moddedVersions, ...gameState.versions];
   });
 
@@ -54,10 +145,8 @@
       versions = versions.filter((v) => v.type === "release");
     } else if (typeFilter === "snapshot") {
       versions = versions.filter((v) => v.type === "snapshot");
-    } else if (typeFilter === "modded") {
-      versions = versions.filter(
-        (v) => v.type === "fabric" || v.type === "forge"
-      );
+    } else if (typeFilter === "installed") {
+      versions = versions.filter((v) => v.isInstalled === true);
     }
 
     // Apply search filter
@@ -90,9 +179,89 @@
   function handleModLoaderInstall(versionId: string) {
     // Refresh the installed versions list
     loadInstalledModdedVersions();
+    // Refresh vanilla versions to update isInstalled status
+    gameState.loadVersions();
     // Select the newly installed version
     gameState.selectedVersion = versionId;
   }
+
+  // Delete confirmation dialog state
+  let showDeleteDialog = $state(false);
+  let versionToDelete = $state<string | null>(null);
+
+  // Show delete confirmation dialog
+  function showDeleteConfirmation(versionId: string, event: MouseEvent) {
+    event.stopPropagation(); // Prevent version selection
+    versionToDelete = versionId;
+    showDeleteDialog = true;
+  }
+
+  // Cancel delete
+  function cancelDelete() {
+    showDeleteDialog = false;
+    versionToDelete = null;
+  }
+
+  // Confirm and delete version
+  async function confirmDelete() {
+    if (!versionToDelete) return;
+
+    try {
+      await invoke("delete_version", { versionId: versionToDelete });
+      // Clear selection if deleted version was selected
+      if (gameState.selectedVersion === versionToDelete) {
+        gameState.selectedVersion = "";
+      }
+      // Close dialog
+      showDeleteDialog = false;
+      versionToDelete = null;
+      // Versions will be refreshed automatically via event listener
+    } catch (e) {
+      console.error("Failed to delete version:", e);
+      alert(`Failed to delete version: ${e}`);
+      // Keep dialog open on error so user can retry
+    }
+  }
+
+  // Version metadata for the selected version
+  interface VersionMetadata {
+    id: string;
+    javaVersion?: number;
+    isInstalled: boolean;
+  }
+
+  let selectedVersionMetadata = $state<VersionMetadata | null>(null);
+  let isLoadingMetadata = $state(false);
+
+  // Load metadata when version is selected
+  async function loadVersionMetadata(versionId: string) {
+    if (!versionId) {
+      selectedVersionMetadata = null;
+      return;
+    }
+
+    isLoadingMetadata = true;
+    try {
+      const metadata = await invoke<VersionMetadata>("get_version_metadata", {
+        versionId,
+      });
+      selectedVersionMetadata = metadata;
+    } catch (e) {
+      console.error("Failed to load version metadata:", e);
+      selectedVersionMetadata = null;
+    } finally {
+      isLoadingMetadata = false;
+    }
+  }
+
+  // Watch for selected version changes
+  $effect(() => {
+    if (gameState.selectedVersion) {
+      loadVersionMetadata(gameState.selectedVersion);
+    } else {
+      selectedVersionMetadata = null;
+    }
+  });
 
   // Get the base Minecraft version from selected version (for mod loader selector)
   let selectedBaseVersion = $derived(() => {
@@ -140,7 +309,7 @@
 
       <!-- Type Filter Tabs (Glass Caps) -->
       <div class="flex p-1 bg-white/60 dark:bg-black/20 rounded-xl border border-black/5 dark:border-white/5">
-        {#each ['all', 'release', 'snapshot', 'modded'] as filter}
+        {#each ['all', 'release', 'snapshot', 'installed'] as filter}
             <button
             class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 capitalize
             {typeFilter === filter
@@ -180,29 +349,52 @@
                  <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent pointer-events-none"></div>
               {/if}
 
-              <div class="relative z-10 flex items-center gap-4">
+              <div class="relative z-10 flex items-center gap-4 flex-1">
                 <span
                   class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border {badge.class}"
                 >
                   {badge.text}
                 </span>
-                <div>
+                <div class="flex-1">
                   <div class="font-bold font-mono text-lg tracking-tight {isSelected ? 'text-black dark:text-white' : 'text-gray-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white'}">
                     {version.id}
                   </div>
-                  {#if version.releaseTime && version.type !== "fabric" && version.type !== "forge"}
-                    <div class="text-xs dark:text-white/30 text-black/30">
-                      {new Date(version.releaseTime).toLocaleDateString()}
-                    </div>
-                  {/if}
+                  <div class="flex items-center gap-2 mt-0.5">
+                    {#if version.releaseTime && version.type !== "fabric" && version.type !== "forge"}
+                      <div class="text-xs dark:text-white/30 text-black/30">
+                        {new Date(version.releaseTime).toLocaleDateString()}
+                      </div>
+                    {/if}
+                    {#if version.javaVersion}
+                      <div class="flex items-center gap-1 text-xs dark:text-white/40 text-black/40">
+                        <span class="opacity-60">☕</span>
+                        <span class="font-medium">Java {version.javaVersion}</span>
+                      </div>
+                    {/if}
+                  </div>
                 </div>
               </div>
               
-              {#if isSelected}
-                <div class="relative z-10 text-indigo-500 dark:text-indigo-400">
-                   <span class="text-lg">Selected</span>
-                </div>
-              {/if}
+              <div class="relative z-10 flex items-center gap-2">
+                {#if version.isInstalled === true}
+                  <button
+                    onclick={(e) => showDeleteConfirmation(version.id, e)}
+                    class="p-2 rounded-lg text-red-500 dark:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Delete version"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                {/if}
+                {#if isSelected}
+                  <div class="text-indigo-500 dark:text-indigo-400">
+                     <span class="text-lg">Selected</span>
+                  </div>
+                {/if}
+              </div>
             </button>
           {/each}
         {/if}
@@ -217,9 +409,50 @@
           
           <h3 class="text-xs font-bold uppercase tracking-widest dark:text-white/40 text-black/40 mb-2 relative z-10">Current Selection</h3>
           {#if gameState.selectedVersion}
-            <p class="font-mono text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-white/70 relative z-10 truncate">
+            <p class="font-mono text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-white/70 relative z-10 truncate mb-4">
                 {gameState.selectedVersion}
             </p>
+
+            <!-- Version Metadata -->
+            {#if isLoadingMetadata}
+              <div class="space-y-3 relative z-10">
+                <div class="animate-pulse space-y-2">
+                  <div class="h-4 bg-black/10 dark:bg-white/10 rounded w-3/4"></div>
+                  <div class="h-4 bg-black/10 dark:bg-white/10 rounded w-1/2"></div>
+                </div>
+              </div>
+            {:else if selectedVersionMetadata}
+              <div class="space-y-3 relative z-10">
+                <!-- Java Version -->
+                {#if selectedVersionMetadata.javaVersion}
+                  <div>
+                    <div class="text-[10px] font-bold uppercase tracking-wider dark:text-white/40 text-black/40 mb-1">Java Version</div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg opacity-60">☕</span>
+                      <span class="text-sm dark:text-white text-black font-medium">
+                        Java {selectedVersionMetadata.javaVersion}
+                      </span>
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Installation Status -->
+                <div>
+                  <div class="text-[10px] font-bold uppercase tracking-wider dark:text-white/40 text-black/40 mb-1">Status</div>
+                  <div class="flex items-center gap-2">
+                    {#if selectedVersionMetadata.isInstalled === true}
+                      <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded border border-emerald-500/30">
+                        Installed
+                      </span>
+                    {:else if selectedVersionMetadata.isInstalled === false}
+                      <span class="px-2 py-0.5 bg-zinc-500/20 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold rounded border border-zinc-500/30">
+                        Not Installed
+                      </span>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            {/if}
           {:else}
             <p class="dark:text-white/20 text-black/20 italic relative z-10">None selected</p>
           {/if}
@@ -235,4 +468,30 @@
 
     </div>
   </div>
+
+  <!-- Delete Version Confirmation Dialog -->
+  {#if showDeleteDialog && versionToDelete}
+    <div class="fixed inset-0 z-[200] bg-black/70 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Version</h3>
+        <p class="text-zinc-600 dark:text-zinc-400 text-sm mb-6">
+          Are you sure you want to delete version <span class="text-gray-900 dark:text-white font-mono font-medium">{versionToDelete}</span>? This action cannot be undone.
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button
+            onclick={cancelDelete}
+            class="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick={confirmDelete}
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>

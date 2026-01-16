@@ -29,6 +29,7 @@ dirs = "5.0"
 serde_urlencoded = "0.7.1"
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
+bytes = "1.11.0"
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }

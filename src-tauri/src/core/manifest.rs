@@ -25,6 +25,13 @@ pub struct Version {
     pub time: String,
     #[serde(rename = "releaseTime")]
     pub release_time: String,
+    /// Java version requirement (major version number)
+    /// This is populated from the version JSON file if the version is installed locally
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub java_version: Option<u64>,
+    /// Whether this version is installed locally
+    #[serde(rename = "isInstalled", skip_serializing_if = "Option::is_none")]
+    pub is_installed: Option<bool>,
 }
 
 pub async fn fetch_version_manifest() -> Result<VersionManifest, Box<dyn Error + Send + Sync>> {

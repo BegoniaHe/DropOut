@@ -139,6 +139,121 @@ async fn start_game(
     // (for modded versions, this is the parent vanilla version)
     let minecraft_version = original_inherits_from.unwrap_or_else(|| version_id.clone());
 
+    // Get required Java version from version file's javaVersion field
+    // The version file (after merging with parent) should contain the correct javaVersion
+    let required_java_major = version_details
+        .java_version
+        .as_ref()
+        .map(|jv| jv.major_version);
+
+    // For older Minecraft versions (1.13.x and below), if javaVersion specifies Java 8,
+    // we should only allow Java 8 (not higher) due to compatibility issues with old Forge
+    // For newer versions, javaVersion.majorVersion is the minimum required version
+    let max_java_major = if let Some(required) = required_java_major {
+        // If version file specifies Java 8, enforce it as maximum (old versions need exactly Java 8)
+        // For Java 9+, allow that version or higher
+        if required <= 8 {
+            Some(8)
+        } else {
+            None // No upper bound for Java 9+
+        }
+    } else {
+        // If version file doesn't specify javaVersion, this shouldn't happen for modern versions
+        // But if it does, we can't determine compatibility - log a warning
+        emit_log!(
+            window,
+            "Warning: Version file does not specify javaVersion. Using system default Java."
+                .to_string()
+        );
+        None
+    };
+
+    // Check if configured Java is compatible
+    let mut java_path_to_use = config.java_path.clone();
+    if !java_path_to_use.is_empty() && java_path_to_use != "java" {
+        let is_compatible =
+            core::java::is_java_compatible(&java_path_to_use, required_java_major, max_java_major);
+
+        if !is_compatible {
+            emit_log!(
+                window,
+                format!(
+                    "Configured Java version may not be compatible. Looking for compatible Java..."
+                )
+            );
+
+            // Try to find a compatible Java version
+            if let Some(compatible_java) =
+                core::java::get_compatible_java(app_handle, required_java_major, max_java_major)
+            {
+                emit_log!(
+                    window,
+                    format!(
+                        "Found compatible Java {} at: {}",
+                        compatible_java.version, compatible_java.path
+                    )
+                );
+                java_path_to_use = compatible_java.path;
+            } else {
+                let version_constraint = if let Some(max) = max_java_major {
+                    if let Some(min) = required_java_major {
+                        if min == max as u64 {
+                            format!("Java {}", min)
+                        } else {
+                            format!("Java {} to {}", min, max)
+                        }
+                    } else {
+                        format!("Java {} (or lower)", max)
+                    }
+                } else if let Some(min) = required_java_major {
+                    format!("Java {} or higher", min)
+                } else {
+                    "any Java version".to_string()
+                };
+
+                return Err(format!(
+                    "No compatible Java installation found. This version requires {}. Please install a compatible Java version in settings.",
+                    version_constraint
+                ));
+            }
+        }
+    } else {
+        // No Java configured, try to find a compatible one
+        if let Some(compatible_java) =
+            core::java::get_compatible_java(app_handle, required_java_major, max_java_major)
+        {
+            emit_log!(
+                window,
+                format!(
+                    "Using Java {} at: {}",
+                    compatible_java.version, compatible_java.path
+                )
+            );
+            java_path_to_use = compatible_java.path;
+        } else {
+            let version_constraint = if let Some(max) = max_java_major {
+                if let Some(min) = required_java_major {
+                    if min == max as u64 {
+                        format!("Java {}", min)
+                    } else {
+                        format!("Java {} to {}", min, max)
+                    }
+                } else {
+                    format!("Java {} (or lower)", max)
+                }
+            } else if let Some(min) = required_java_major {
+                format!("Java {} or higher", min)
+            } else {
+                "any Java version".to_string()
+            };
+
+            return Err(format!(
+                "No compatible Java installation found. This version requires {}. Please install a compatible Java version in settings.",
+                version_constraint
+            ));
+        }
+    }
+
     // 2. Prepare download tasks
     emit_log!(window, "Preparing download tasks...".to_string());
     let mut download_tasks = Vec::new();
@@ -521,33 +636,67 @@ async fn start_game(
         window,
         format!("Preparing to launch game with {} arguments...", args.len())
     );
-    // Debug: Log arguments (only first few to avoid spam)
-    if args.len() > 10 {
-        emit_log!(window, format!("Java Args: {:?}", &args));
-    }
 
-    // Get Java path from config or detect
-    let java_path_str = if !config.java_path.is_empty() && config.java_path != "java" {
-        config.java_path.clone()
-    } else {
-        // Try to find a suitable Java installation
-        let javas = core::java::detect_all_java_installations(&app_handle);
-        if let Some(java) = javas.first() {
-            java.path.clone()
-        } else {
-            return Err(
-                "No Java installation found. Please configure Java in settings.".to_string(),
-            );
-        }
-    };
-    let java_path = utils::path::normalize_java_path(&java_path_str)?;
+    // Format Java command with sensitive information masked
+    let masked_args: Vec<String> = args
+        .iter()
+        .enumerate()
+        .map(|(i, arg)| {
+            // Check if previous argument was a sensitive flag
+            if i > 0 {
+                let prev_arg = &args[i - 1];
+                if prev_arg == "--accessToken" || prev_arg == "--uuid" {
+                    return "***".to_string();
+                }
+            }
+
+            // Mask sensitive argument values
+            if arg == "--accessToken" || arg == "--uuid" {
+                arg.clone()
+            } else if arg.starts_with("token:") {
+                // Mask token: prefix tokens (Session ID format)
+                "token:***".to_string()
+            } else if arg.len() > 100
+                && arg.contains('.')
+                && !arg.contains('/')
+                && !arg.contains('\\')
+                && !arg.contains(':')
+            {
+                // Likely a JWT token (very long string with dots, no paths)
+                "***".to_string()
+            } else if arg.len() == 36
+                && arg.contains('-')
+                && arg.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+            {
+                // Likely a UUID (36 chars with dashes)
+                "***".to_string()
+            } else {
+                arg.clone()
+            }
+        })
+        .collect();
+
+    // Format as actual Java command (properly quote arguments with spaces)
+    let masked_args_str: Vec<String> = masked_args
+        .iter()
+        .map(|arg| {
+            if arg.contains(' ') {
+                format!("\"{}\"", arg)
+            } else {
+                arg.clone()
+            }
+        })
+        .collect();
+
+    let java_command = format!("{} {}", java_path_to_use, masked_args_str.join(" "));
+    emit_log!(window, format!("Java Command: {}", java_command));
 
     // Spawn the process
     emit_log!(
         window,
-        format!("Starting Java process: {}", java_path.display())
+        format!("Starting Java process: {}", java_path_to_use)
     );
-    let mut command = Command::new(&java_path);
+    let mut command = Command::new(&java_path_to_use);
     command.args(&args);
     command.current_dir(&game_dir); // Run in game directory
     command.stdout(Stdio::piped());
@@ -567,7 +716,7 @@ async fn start_game(
     // Spawn and handle output
     let mut child = command
         .spawn()
-        .map_err(|e| format!("Failed to launch Java at '{}': {}\nPlease check your Java installation and path configuration in Settings.", java_path.display(), e))?;
+        .map_err(|e| format!("Failed to launch Java at '{}': {}\nPlease check your Java installation and path configuration in Settings.", java_path_to_use, e))?;
 
     emit_log!(window, "Java process started successfully".to_string());
 
@@ -699,9 +848,42 @@ fn parse_jvm_arguments(
 }
 
 #[tauri::command]
-async fn get_versions() -> Result<Vec<core::manifest::Version>, String> {
+async fn get_versions(window: Window) -> Result<Vec<core::manifest::Version>, String> {
+    let app_handle = window.app_handle();
+    let game_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
     match core::manifest::fetch_version_manifest().await {
-        Ok(manifest) => Ok(manifest.versions),
+        Ok(manifest) => {
+            let mut versions = manifest.versions;
+
+            // For each version, try to load Java version info and check installation status
+            for version in &mut versions {
+                // Check if version is installed
+                let version_dir = game_dir.join("versions").join(&version.id);
+                let json_path = version_dir.join(format!("{}.json", version.id));
+                let client_jar_path = version_dir.join(format!("{}.jar", version.id));
+
+                // Version is installed if both JSON and client jar exist
+                let is_installed = json_path.exists() && client_jar_path.exists();
+                version.is_installed = Some(is_installed);
+
+                // If installed, try to load the version JSON to get javaVersion
+                if is_installed {
+                    if let Ok(game_version) =
+                        core::manifest::load_local_version(&game_dir, &version.id).await
+                    {
+                        if let Some(java_ver) = game_version.java_version {
+                            version.java_version = Some(java_ver.major_version);
+                        }
+                    }
+                }
+            }
+
+            Ok(versions)
+        }
         Err(e) => Err(e.to_string()),
     }
 }
@@ -1007,6 +1189,9 @@ async fn install_version(
         window,
         format!("Installation of {} completed successfully!", version_id)
     );
+
+    // Emit event to notify frontend that version installation is complete
+    let _ = window.emit("version-installed", &version_id);
 
     Ok(())
 }
@@ -1371,6 +1556,9 @@ async fn install_fabric(
         format!("Fabric installed successfully: {}", result.id)
     );
 
+    // Emit event to notify frontend
+    let _ = window.emit("fabric-installed", &result.id);
+
     Ok(result)
 }
 
@@ -1386,6 +1574,147 @@ async fn list_installed_fabric_versions(window: Window) -> Result<Vec<String>, S
     core::fabric::list_installed_fabric_versions(&game_dir)
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Get Java version requirement for a specific version
+#[tauri::command]
+async fn get_version_java_version(
+    window: Window,
+    version_id: String,
+) -> Result<Option<u64>, String> {
+    let app_handle = window.app_handle();
+    let game_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    // Try to load the version JSON to get javaVersion
+    match core::manifest::load_version(&game_dir, &version_id).await {
+        Ok(game_version) => Ok(game_version.java_version.map(|jv| jv.major_version)),
+        Err(_) => Ok(None), // Version not found or can't be loaded
+    }
+}
+
+/// Version metadata for display in the UI
+#[derive(serde::Serialize)]
+struct VersionMetadata {
+    id: String,
+    #[serde(rename = "javaVersion")]
+    java_version: Option<u64>,
+    #[serde(rename = "isInstalled")]
+    is_installed: bool,
+}
+
+/// Delete a version (remove version directory)
+#[tauri::command]
+async fn delete_version(window: Window, version_id: String) -> Result<(), String> {
+    let app_handle = window.app_handle();
+    let game_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    let version_dir = game_dir.join("versions").join(&version_id);
+
+    if !version_dir.exists() {
+        return Err(format!("Version {} not found", version_id));
+    }
+
+    // Remove the entire version directory
+    tokio::fs::remove_dir_all(&version_dir)
+        .await
+        .map_err(|e| format!("Failed to delete version: {}", e))?;
+
+    // Emit event to notify frontend
+    let _ = window.emit("version-deleted", &version_id);
+
+    Ok(())
+}
+
+/// Get detailed metadata for a specific version
+#[tauri::command]
+async fn get_version_metadata(
+    window: Window,
+    version_id: String,
+) -> Result<VersionMetadata, String> {
+    let app_handle = window.app_handle();
+    let game_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    // Initialize metadata
+    let mut metadata = VersionMetadata {
+        id: version_id.clone(),
+        java_version: None,
+        is_installed: false,
+    };
+
+    // Check if version is in manifest and get Java version if available
+    if let Ok(manifest) = core::manifest::fetch_version_manifest().await {
+        if let Some(version_entry) = manifest.versions.iter().find(|v| v.id == version_id) {
+            // Note: version_entry.java_version is only set if version is installed locally
+            // For uninstalled versions, we'll fetch from remote below
+            if let Some(java_ver) = version_entry.java_version {
+                metadata.java_version = Some(java_ver);
+            }
+        }
+    }
+
+    // Check if version is installed (both JSON and client jar must exist)
+    let version_dir = game_dir.join("versions").join(&version_id);
+    let json_path = version_dir.join(format!("{}.json", version_id));
+
+    // For modded versions, check the parent vanilla version's client jar
+    let client_jar_path = if version_id.starts_with("fabric-loader-") {
+        // Format: fabric-loader-X.X.X-1.20.4
+        let minecraft_version = version_id
+            .split('-')
+            .next_back()
+            .unwrap_or(&version_id)
+            .to_string();
+        game_dir
+            .join("versions")
+            .join(&minecraft_version)
+            .join(format!("{}.jar", minecraft_version))
+    } else if version_id.contains("-forge-") {
+        // Format: 1.20.4-forge-49.0.38
+        let minecraft_version = version_id
+            .split("-forge-")
+            .next()
+            .unwrap_or(&version_id)
+            .to_string();
+        game_dir
+            .join("versions")
+            .join(&minecraft_version)
+            .join(format!("{}.jar", minecraft_version))
+    } else {
+        version_dir.join(format!("{}.jar", version_id))
+    };
+
+    metadata.is_installed = json_path.exists() && client_jar_path.exists();
+
+    // Try to get Java version - from local if installed, or from remote if not
+    if metadata.is_installed {
+        // If installed, load from local version JSON
+        if let Ok(game_version) = core::manifest::load_version(&game_dir, &version_id).await {
+            if let Some(java_ver) = game_version.java_version {
+                metadata.java_version = Some(java_ver.major_version);
+            }
+        }
+    } else if metadata.java_version.is_none() {
+        // If not installed and we don't have Java version yet, try to fetch from remote
+        // This is for vanilla versions that are not installed
+        if !version_id.starts_with("fabric-loader-") && !version_id.contains("-forge-") {
+            if let Ok(game_version) = core::manifest::fetch_vanilla_version(&version_id).await {
+                if let Some(java_ver) = game_version.java_version {
+                    metadata.java_version = Some(java_ver.major_version);
+                }
+            }
+        }
+    }
+
+    Ok(metadata)
 }
 
 /// Installed version info
@@ -1579,6 +1908,9 @@ async fn install_forge(
         window,
         format!("Forge installed successfully: {}", result.id)
     );
+
+    // Emit event to notify frontend
+    let _ = window.emit("forge-installed", &result.id);
 
     Ok(result)
 }
@@ -1802,6 +2134,9 @@ fn main() {
             check_version_installed,
             install_version,
             list_installed_versions,
+            get_version_java_version,
+            get_version_metadata,
+            delete_version,
             login_offline,
             get_active_account,
             logout,
