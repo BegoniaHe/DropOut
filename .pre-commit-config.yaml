@@ -2,7 +2,7 @@ ci:
   autofix_prs: true
   autofix_commit_msg: "[pre-commit.ci] auto fixes from pre-commit hooks [skip ci]"
   skip: [fmt,cargo-check,clippy]
-  
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -29,5 +29,11 @@ repos:
     rev: v1.2.1
     hooks:
       - id: fmt
+        args: [ --manifest-path src-tauri/Cargo.toml ]
+        files: ^src-tauri/.*\.rs$
       - id: cargo-check
+        args: [ --manifest-path src-tauri/Cargo.toml ]
+        files: ^src-tauri/.*\.rs$
       - id: clippy
+        args: [ --manifest-path src-tauri/Cargo.toml ]
+        files: ^src-tauri/.*\.rs$
