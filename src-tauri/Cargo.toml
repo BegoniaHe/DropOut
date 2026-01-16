@@ -45,4 +45,3 @@ section = "games"
 assets = [
     ["target/release/dropout", "usr/bin/", "755"],
 ]
-

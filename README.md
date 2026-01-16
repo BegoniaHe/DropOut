@@ -114,4 +114,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FHsiangNianian%2FDropOut.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FHsiangNianian%2FDropOut?ref=badge_large)
 
 Distributed under the MIT License. See `LICENSE` for more information.
-
