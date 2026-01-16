@@ -32,6 +32,6 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: apply prek auto-fixes [skip ci]"
-          commit_user_name: "pre-commit bot"
-          commit_user_email: "pre-commit-bot@users.noreply.github.com"
+          commit_user_name: "hydroroll-bot"
+          commit_user_email: "bot@hydroroll.team"
           skip_dirty_check: true
