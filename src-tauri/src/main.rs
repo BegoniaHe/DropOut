@@ -523,7 +523,7 @@ async fn start_game(
     );
     // Debug: Log arguments (only first few to avoid spam)
     if args.len() > 10 {
-        emit_log!(window, format!("First 10 args: {:?}", &args[..10]));
+        emit_log!(window, format!("Java Args: {:?}", &args));
     }
 
     // Spawn the process
