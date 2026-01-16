@@ -9,6 +9,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 
 const FORGE_PROMOTIONS_URL: &str =
@@ -293,13 +295,16 @@ pub async fn run_forge_installer(
 
     // Run the installer in headless mode
     // The installer accepts --installClient <path> to install to a specific directory
-    let output = tokio::process::Command::new(java_path)
-        .arg("-jar")
+    let mut cmd = tokio::process::Command::new(java_path);
+    cmd.arg("-jar")
         .arg(&installer_path)
         .arg("--installClient")
-        .arg(game_dir)
-        .output()
-        .await?;
+        .arg(game_dir);
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    let output = cmd.output().await?;
 
     // Clean up installer
     let _ = tokio::fs::remove_file(&installer_path).await;

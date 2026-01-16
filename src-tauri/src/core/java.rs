@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::Command;
 use tauri::AppHandle;
@@ -10,6 +12,18 @@ use crate::utils::zip;
 
 const ADOPTIUM_API_BASE: &str = "https://api.adoptium.net/v3";
 const CACHE_DURATION_SECS: u64 = 24 * 60 * 60; // 24 hours
+
+/// Helper to strip UNC prefix on Windows (\\?\)
+fn strip_unc_prefix(path: PathBuf) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        let s = path.to_string_lossy().to_string();
+        if s.starts_with(r"\\?\") {
+            return PathBuf::from(&s[4..]);
+        }
+    }
+    path
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JavaInstallation {
@@ -563,6 +577,10 @@ pub async fn download_and_install_java(
         ));
     }
 
+    // Resolve symlinks and strip UNC prefix to ensure clean path
+    let java_bin = std::fs::canonicalize(&java_bin).map_err(|e| e.to_string())?;
+    let java_bin = strip_unc_prefix(java_bin);
+
     // 9. Verify installation
     let installation = check_java_installation(&java_bin)
         .ok_or_else(|| "Failed to verify Java installation".to_string())?;
@@ -636,16 +654,22 @@ fn get_java_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
     // Check PATH first
-    if let Ok(output) = Command::new(if cfg!(windows) { "where" } else { "which" })
-        .arg("java")
-        .output()
-    {
+    let mut cmd = Command::new(if cfg!(windows) { "where" } else { "which" });
+    cmd.arg("java");
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    if let Ok(output) = cmd.output() {
         if output.status.success() {
             let paths = String::from_utf8_lossy(&output.stdout);
             for line in paths.lines() {
                 let path = PathBuf::from(line.trim());
                 if path.exists() {
-                    candidates.push(path);
+                    // Resolve symlinks (important for Windows javapath wrapper)
+                    let resolved = std::fs::canonicalize(&path).unwrap_or(path);
+                    // Strip UNC prefix if present to keep paths clean
+                    let final_path = strip_unc_prefix(resolved);
+                    candidates.push(final_path);
                 }
             }
         }
@@ -788,7 +812,12 @@ fn get_java_candidates() -> Vec<PathBuf> {
 
 /// Check a specific Java installation and get its version info
 fn check_java_installation(path: &PathBuf) -> Option<JavaInstallation> {
-    let output = Command::new(path).arg("-version").output().ok()?;
+    let mut cmd = Command::new(path);
+    cmd.arg("-version");
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    let output = cmd.output().ok()?;
 
     // Java outputs version info to stderr
     let version_output = String::from_utf8_lossy(&output.stderr);
@@ -894,7 +923,8 @@ fn find_java_executable(dir: &PathBuf) -> Option<PathBuf> {
     // Directly look in the bin directory
     let direct_bin = dir.join("bin").join(bin_name);
     if direct_bin.exists() {
-        return Some(direct_bin);
+        let resolved = std::fs::canonicalize(&direct_bin).unwrap_or(direct_bin);
+        return Some(strip_unc_prefix(resolved));
     }
 
     // macOS: Contents/Home/bin/java
@@ -914,7 +944,8 @@ fn find_java_executable(dir: &PathBuf) -> Option<PathBuf> {
                 // Try direct bin path
                 let nested_bin = path.join("bin").join(bin_name);
                 if nested_bin.exists() {
-                    return Some(nested_bin);
+                    let resolved = std::fs::canonicalize(&nested_bin).unwrap_or(nested_bin);
+                    return Some(strip_unc_prefix(resolved));
                 }
 
                 // macOS: nested/Contents/Home/bin/java
