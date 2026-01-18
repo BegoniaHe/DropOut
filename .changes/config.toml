@@ -18,6 +18,7 @@ version-mode = { pre-release.tag = "alpha" }
 path = "src-tauri"
 resolver = "rust"
 version-mode = { pre-release.tag = "alpha" }
+assets = ["artifacts/*"]
 
 [resolver.rust.pre-check]
 url = "https://crates.io/api/v1/crates/{{ package.name }}/{{ package.version }}"

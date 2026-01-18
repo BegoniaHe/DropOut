@@ -43,9 +43,6 @@ jobs:
             args: "--target aarch64-pc-windows-msvc"
 
     runs-on: ${{ matrix.platform }}
-    container:
-      image: ${{ matrix.container }}
-      options: --user root
     steps:
       - uses: actions/checkout@v6
 
@@ -134,15 +131,18 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v6
         with:
+          name: linux-${{ matrix.target }}-artifacts
           path: |
             target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
             target/${{ matrix.target }}/release/bundle/deb/*.deb
+            target/${{ matrix.target }}/release/bundle/appimage/*.rpm
           retention-days: 1
 
       - name: Upload Artifact (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v6
         with:
+          name: windows-${{ matrix.target }}-artifacts
           path: |
             target/${{ matrix.target }}/release/bundle/msi/*.msi
             target/${{ matrix.target }}/release/bundle/nsis/*.exe
@@ -152,9 +152,10 @@ jobs:
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v6
         with:
+          name: macos-${{ matrix.target }}-artifacts
           path: |
             target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            target/${{ matrix.target }}/release/bundle/macos/DropOut.app
+            target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz
           retention-days: 1
 
   release:
