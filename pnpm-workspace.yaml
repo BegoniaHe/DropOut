@@ -1,5 +1,2 @@
 packages:
   - ui
-
-onlyBuiltDependencies:
-  - "@j178/prek"

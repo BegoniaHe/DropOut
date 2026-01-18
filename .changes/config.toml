@@ -42,6 +42,10 @@ args = [
 ]
 dry_run = true
 
+[[resolver.rust.post-version]]
+command = "pnpm"
+args = ["bump-tauri"]
+
 [resolver.nodejs.pre-check]
 url = "https://registry.npmjs.org/{{ package.name }}/{{ package.version }}"
 
