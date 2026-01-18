@@ -1946,7 +1946,7 @@ struct GithubRelease {
 async fn get_github_releases() -> Result<Vec<GithubRelease>, String> {
     let client = reqwest::Client::new();
     let res = client
-        .get("https://api.github.com/repos/HsiangNianian/DropOut/releases")
+        .get("https://api.github.com/repos/HydroRoll-Team/DropOut/releases")
         .header("User-Agent", "DropOut-Launcher")
         .send()
         .await
