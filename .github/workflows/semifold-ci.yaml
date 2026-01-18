@@ -1,61 +1,19 @@
-name: Release
-
+name: Semifold CI
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: "Tag name to release (e.g., v1.0.0)"
-        required: true
-        default: "v1.0.0"
+    branches: [main]
 
 env:
-  CARGO_TERM_COLOR: always
+  CLICOLOR_FORCE: 1
 
 permissions:
+  id-token: write
   contents: write
+  pull-requests: write
 
 jobs:
-  promote-release:
-    name: Create Release & Changelog
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create_release.outputs.id }}
-      release_body: ${{ steps.changelog.outputs.changes }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate CHANGELOG
-        id: changelog
-        uses: requarks/changelog-action@v1
-        with:
-          token: ${{ github.token }}
-          tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-          changelogFilePath: CHANGELOG.md
-          includeInvalidCommits: true
-          useGitmojis: false
-
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-          name: "DropOut ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}"
-          body: ${{ steps.changelog.outputs.changes }}
-          draft: true
-          prerelease: false
-
   build-tauri:
-    name: Build & Upload (${{ matrix.name }})
-    needs: promote-release
-    permissions:
-      contents: write
+    name: Build on ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +44,7 @@ jobs:
       image: ${{ matrix.container }}
       options: --user root
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Dependencies (Linux x86_64)
         if: matrix.platform == 'ubuntu-22.04'
@@ -103,10 +61,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: latest
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: "pnpm"
@@ -126,7 +84,7 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
           shared-key: ${{ matrix.target }}
-          
+
       - name: Setup appimagetool (Linux)
         if: startsWith(matrix.platform, 'ubuntu') && !startsWith(matrix.platform, 'macos') && !startsWith(matrix.platform, 'windows')
         run: |
@@ -144,7 +102,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          releaseId: ${{ needs.promote-release.outputs.release_id }}
           args: ${{ matrix.args }}
 
       - name: Fix AppImage for Wayland (Linux)
@@ -172,3 +129,23 @@ jobs:
             rm -rf squashfs-root
           fi
         working-directory: src-tauri/target/release
+
+      - name: List Files
+        run: ls -l src-tauri/target/release
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Setup Semifold
+        uses: noctisynth/setup-semifold@main
+      - name: Semifold CI
+        run: semifold ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
