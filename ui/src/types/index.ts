@@ -222,3 +222,11 @@ export interface MemoryOverride {
   min: number; // MB
   max: number; // MB
 }
+
+export interface FileInfo {
+  name: string;
+  path: string;
+  is_directory: boolean;
+  size: number;
+  modified: number;
+}
