@@ -68,6 +68,19 @@ export interface LauncherConfig {
   log_upload_service: "paste.rs" | "pastebin.com";
   pastebin_api_key?: string;
   assistant: AssistantConfig;
+  // Storage management
+  use_shared_caches: boolean;
+  keep_legacy_per_instance_storage: boolean;
+  // Feature-gated argument flags
+  feature_flags: FeatureFlags;
+}
+
+export interface FeatureFlags {
+  demo_user: boolean;
+  quick_play_enabled: boolean;
+  quick_play_path?: string;
+  quick_play_singleplayer: boolean;
+  quick_play_multiplayer_server?: string;
 }
 
 export interface JavaInstallation {
