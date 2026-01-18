@@ -9,29 +9,24 @@ export class GameState {
   selectedVersion = $state("");
 
   constructor() {
-    // Refresh versions when active instance changes
-    $effect(() => {
-      if (instancesState.activeInstanceId) {
-        this.loadVersions();
-      } else {
-        this.versions = [];
-      }
-    });
+    // Constructor intentionally empty
+    // Instance switching handled in App.svelte with $effect
   }
 
   get latestRelease() {
     return this.versions.find((v) => v.type === "release");
   }
 
-  async loadVersions() {
-    if (!instancesState.activeInstanceId) {
+  async loadVersions(instanceId?: string) {
+    const id = instanceId || instancesState.activeInstanceId;
+    if (!id) {
       this.versions = [];
       return;
     }
 
     try {
       this.versions = await invoke<Version[]>("get_versions", {
-        instanceId: instancesState.activeInstanceId,
+        instanceId: id,
       });
       // Don't auto-select version here - let BottomBar handle version selection
       // based on installed versions only
