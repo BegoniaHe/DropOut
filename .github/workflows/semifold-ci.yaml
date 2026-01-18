@@ -75,9 +75,8 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "ui/pnpm-lock.yaml"
 
-      - name: Install Frontend Dependencies
+      - name: Install Node.js Dependencies
         run: pnpm install
-        working-directory: ui
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -176,6 +175,16 @@ jobs:
           fetch-depth: 0
       - name: Setup Semifold
         uses: noctisynth/setup-semifold@main
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+      - name: Install Node.js Dependencies
+        run: pnpm install
       - name: Download build artifacts
         uses: actions/download-artifact@v6
         with:
