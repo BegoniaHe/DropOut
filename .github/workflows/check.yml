@@ -3,11 +3,11 @@ name: UI Checker
 on:
   push:
     paths:
-      - "ui/**"
+      - "packages/**"
       - ".github/workflows/check.yml"
   pull_request:
     paths:
-      - "ui/**"
+      - "packages/**"
       - ".github/workflows/check.yml"
   workflow_dispatch:
 
