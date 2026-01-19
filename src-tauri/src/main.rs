@@ -118,7 +118,7 @@ async fn start_game(
         }
     }
 
-    emit_log!(window, format!("Account found: {}", account.username()));
+    emit_log!(window, "Account found".to_string());
 
     let config = config_state.config.lock().unwrap().clone();
     emit_log!(window, format!("Java path: {}", config.java_path));
