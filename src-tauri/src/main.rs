@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, Window}; // Added Emitter
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use ts_rs::TS; // Added Serialize
+use ts_rs::TS;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
