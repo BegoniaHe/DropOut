@@ -1753,7 +1753,7 @@ async fn get_version_java_version(
 #[derive(serde::Serialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/VersionMetadata.ts"
+    export_to = "../../packages/ui/src/types/generated/VersionMetadata.ts"
 )]
 struct VersionMetadata {
     id: String,
@@ -1907,7 +1907,7 @@ async fn get_version_metadata(
 #[derive(serde::Serialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/InstalledVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/InstalledVersion.ts"
 )]
 struct InstalledVersion {
     id: String,
@@ -2140,7 +2140,7 @@ async fn install_forge(
 #[derive(serde::Serialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/GithubRelease.ts"
+    export_to = "../../packages/ui/src/types/generated/GithubRelease.ts"
 )]
 struct GithubRelease {
     tag_name: String,
@@ -2190,7 +2190,7 @@ async fn get_github_releases() -> Result<Vec<GithubRelease>, String> {
 #[derive(Serialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/PastebinResponse.ts"
+    export_to = "../../packages/ui/src/types/generated/PastebinResponse.ts"
 )]
 struct PastebinResponse {
     url: String,
@@ -2402,7 +2402,7 @@ async fn assistant_chat_stream(
 #[derive(Serialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/MigrationResult.ts"
+    export_to = "../../packages/ui/src/types/generated/MigrationResult.ts"
 )]
 struct MigrationResult {
     moved_files: usize,
@@ -2453,7 +2453,10 @@ async fn migrate_shared_caches(
 
 /// File information for instance file browser
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../packages/ui/src/types/generated/FileInfo.ts")]
+#[ts(
+    export,
+    export_to = "../../packages/ui/src/types/generated/FileInfo.ts"
+)]
 struct FileInfo {
     name: String,
     path: String,

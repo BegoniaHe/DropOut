@@ -17,7 +17,7 @@ fn get_client() -> reqwest::Client {
 #[ts(
     export,
     tag = "type",
-    export_to = "../packages/ui/src/types/generated/Account.ts"
+    export_to = "../../packages/ui/src/types/generated/Account.ts"
 )]
 pub enum Account {
     Offline(OfflineAccount),
@@ -50,7 +50,7 @@ impl Account {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/OfflineAccount.ts"
+    export_to = "../../packages/ui/src/types/generated/OfflineAccount.ts"
 )]
 pub struct OfflineAccount {
     pub username: String,
@@ -60,7 +60,7 @@ pub struct OfflineAccount {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/MicrosoftAccount.ts"
+    export_to = "../../packages/ui/src/types/generated/MicrosoftAccount.ts"
 )]
 pub struct MicrosoftAccount {
     pub username: String,
@@ -94,7 +94,7 @@ const SCOPE: &str = "XboxLive.SignIn XboxLive.offline_access";
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/DeviceCodeResponse.ts"
+    export_to = "../../packages/ui/src/types/generated/DeviceCodeResponse.ts"
 )]
 pub struct DeviceCodeResponse {
     pub user_code: String,
@@ -108,7 +108,7 @@ pub struct DeviceCodeResponse {
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/TokenResponse.ts"
+    export_to = "../../packages/ui/src/types/generated/TokenResponse.ts"
 )]
 pub struct TokenResponse {
     pub access_token: String,
@@ -234,7 +234,7 @@ pub struct MinecraftAuthResponse {
 #[derive(Debug, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/MinecraftProfile.ts"
+    export_to = "../../packages/ui/src/types/generated/MinecraftProfile.ts"
 )]
 pub struct MinecraftProfile {
     pub id: String,

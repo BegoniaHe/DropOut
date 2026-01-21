@@ -15,7 +15,10 @@ use ts_rs::TS;
 
 /// Represents a game instance/profile
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../packages/ui/src/types/generated/Instance.ts")]
+#[ts(
+    export,
+    export_to = "../../packages/ui/src/types/generated/Instance.ts"
+)]
 pub struct Instance {
     pub id: String,                         // 唯一标识符（UUID）
     pub name: String,                       // 显示名称
@@ -36,7 +39,7 @@ pub struct Instance {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/MemoryOverride.ts"
+    export_to = "../../packages/ui/src/types/generated/MemoryOverride.ts"
 )]
 pub struct MemoryOverride {
     pub min: u32, // MB
@@ -47,7 +50,7 @@ pub struct MemoryOverride {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/InstanceConfig.ts"
+    export_to = "../../packages/ui/src/types/generated/InstanceConfig.ts"
 )]
 pub struct InstanceConfig {
     pub instances: Vec<Instance>,

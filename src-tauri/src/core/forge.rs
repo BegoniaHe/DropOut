@@ -23,7 +23,7 @@ const FORGE_FILES_URL: &str = "https://files.minecraftforge.net/";
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/ForgeVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/ForgeVersion.ts"
 )]
 pub struct ForgeVersion {
     pub version: String,
@@ -44,7 +44,7 @@ struct ForgePromotions {
 #[derive(Debug, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/InstalledForgeVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/InstalledForgeVersion.ts"
 )]
 pub struct InstalledForgeVersion {
     pub id: String,

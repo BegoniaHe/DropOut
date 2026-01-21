@@ -8,7 +8,7 @@ use ts_rs::TS;
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/AssistantConfig.ts"
+    export_to = "../../packages/ui/src/types/generated/AssistantConfig.ts"
 )]
 #[serde(default)]
 pub struct AssistantConfig {
@@ -51,7 +51,7 @@ impl Default for AssistantConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FeatureFlags.ts"
+    export_to = "../../packages/ui/src/types/generated/FeatureFlags.ts"
 )]
 #[serde(default)]
 pub struct FeatureFlags {
@@ -82,7 +82,7 @@ impl Default for FeatureFlags {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/LauncherConfig.ts"
+    export_to = "../../packages/ui/src/types/generated/LauncherConfig.ts"
 )]
 #[serde(default)]
 pub struct LauncherConfig {

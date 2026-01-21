@@ -12,7 +12,7 @@ use ts_rs::TS;
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/DownloadTask.ts"
+    export_to = "../../packages/ui/src/types/generated/DownloadTask.ts"
 )]
 pub struct DownloadTask {
     pub url: String,
@@ -27,7 +27,7 @@ pub struct DownloadTask {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/DownloadMetadata.ts"
+    export_to = "../../packages/ui/src/types/generated/DownloadMetadata.ts"
 )]
 pub struct DownloadMetadata {
     pub url: String,
@@ -43,7 +43,7 @@ pub struct DownloadMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/DownloadSegment.ts"
+    export_to = "../../packages/ui/src/types/generated/DownloadSegment.ts"
 )]
 pub struct DownloadSegment {
     pub start: u64,
@@ -56,7 +56,7 @@ pub struct DownloadSegment {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/JavaDownloadProgress.ts"
+    export_to = "../../packages/ui/src/types/generated/JavaDownloadProgress.ts"
 )]
 pub struct JavaDownloadProgress {
     pub file_name: String,
@@ -72,7 +72,7 @@ pub struct JavaDownloadProgress {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/PendingJavaDownload.ts"
+    export_to = "../../packages/ui/src/types/generated/PendingJavaDownload.ts"
 )]
 pub struct PendingJavaDownload {
     pub major_version: u32,
@@ -89,7 +89,7 @@ pub struct PendingJavaDownload {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/DownloadQueue.ts"
+    export_to = "../../packages/ui/src/types/generated/DownloadQueue.ts"
 )]
 pub struct DownloadQueue {
     pub pending_downloads: Vec<PendingJavaDownload>,
@@ -447,7 +447,7 @@ fn create_new_metadata(
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/ProgressEvent.ts"
+    export_to = "../../packages/ui/src/types/generated/ProgressEvent.ts"
 )]
 pub struct ProgressEvent {
     pub file: String,

@@ -16,7 +16,7 @@ const FABRIC_META_URL: &str = "https://meta.fabricmc.net/v2";
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricLoaderVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricLoaderVersion.ts"
 )]
 pub struct FabricLoaderVersion {
     pub separator: String,
@@ -30,7 +30,7 @@ pub struct FabricLoaderVersion {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricIntermediaryVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricIntermediaryVersion.ts"
 )]
 pub struct FabricIntermediaryVersion {
     pub maven: String,
@@ -42,7 +42,7 @@ pub struct FabricIntermediaryVersion {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricLoaderEntry.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricLoaderEntry.ts"
 )]
 pub struct FabricLoaderEntry {
     pub loader: FabricLoaderVersion,
@@ -55,7 +55,7 @@ pub struct FabricLoaderEntry {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricLauncherMeta.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricLauncherMeta.ts"
 )]
 pub struct FabricLauncherMeta {
     pub version: i32,
@@ -68,7 +68,7 @@ pub struct FabricLauncherMeta {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricLibraries.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricLibraries.ts"
 )]
 pub struct FabricLibraries {
     pub client: Vec<FabricLibrary>,
@@ -80,7 +80,7 @@ pub struct FabricLibraries {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricLibrary.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricLibrary.ts"
 )]
 pub struct FabricLibrary {
     pub name: String,
@@ -92,7 +92,7 @@ pub struct FabricLibrary {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricMainClass.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricMainClass.ts"
 )]
 #[serde(untagged)]
 pub enum FabricMainClass {
@@ -121,7 +121,7 @@ impl FabricMainClass {
 #[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/FabricGameVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/FabricGameVersion.ts"
 )]
 pub struct FabricGameVersion {
     pub version: String,
@@ -132,7 +132,7 @@ pub struct FabricGameVersion {
 #[derive(Debug, Serialize, Clone, TS)]
 #[ts(
     export,
-    export_to = "../packages/ui/src/types/generated/InstalledFabricVersion.ts"
+    export_to = "../../packages/ui/src/types/generated/InstalledFabricVersion.ts"
 )]
 pub struct InstalledFabricVersion {
     pub id: String,
