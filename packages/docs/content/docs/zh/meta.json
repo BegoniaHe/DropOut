@@ -1,11 +1,11 @@
 {
-  "title": "Documentation",
+  "title": "文档",
   "pages": [
     "index",
     "getting-started",
     "architecture",
     {
-      "title": "Features",
+      "title": "功能特性",
       "pages": [
         "features/index",
         "features/authentication",
