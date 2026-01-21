@@ -4,15 +4,7 @@
     "index",
     "getting-started",
     "architecture",
-    {
-      "title": "功能特性",
-      "pages": [
-        "features/index",
-        "features/authentication",
-        "features/java",
-        "features/mod-loaders"
-      ]
-    },
+    "features",
     "development",
     "troubleshooting"
   ]

@@ -4,15 +4,7 @@
     "index",
     "getting-started",
     "architecture",
-    {
-      "title": "Features",
-      "pages": [
-        "features/index",
-        "features/authentication",
-        "features/java",
-        "features/mod-loaders"
-      ]
-    },
+    "features",
     "development",
     "troubleshooting"
   ]
