@@ -428,11 +428,13 @@ taskkill /F /IM dropout.exe
 
 **1. Check permissions:**
 ```bash
-# Linux
-chmod -R 755 ~/.local/share/com.dropout.launcher
+# Linux (set secure owner-only permissions)
+sudo chown -R "$USER":"$USER" ~/.local/share/com.dropout.launcher
+chmod -R u+rwX,go-rwx ~/.local/share/com.dropout.launcher
 
-# macOS
-chmod -R 755 ~/Library/Application\ Support/com.dropout.launcher
+# macOS (set secure owner-only permissions)
+sudo chown -R "$USER":"$USER" ~/Library/Application\ Support/com.dropout.launcher
+chmod -R u+rwX,go-rwx ~/Library/Application\ Support/com.dropout.launcher
 ```
 
 **2. Check disk space:**
