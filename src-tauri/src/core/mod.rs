@@ -12,3 +12,5 @@ pub mod manifest;
 pub mod maven;
 pub mod rules;
 pub mod version_merge;
+
+pub use java::JavaInstallation;

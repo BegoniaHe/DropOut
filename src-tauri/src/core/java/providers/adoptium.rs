@@ -1,0 +1,306 @@
+use crate::core::java::provider::JavaProvider;
+use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaReleaseInfo};
+use serde::Deserialize;
+use tauri::AppHandle;
+
+const ADOPTIUM_API_BASE: &str = "https://api.adoptium.net/v3";
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AdoptiumAsset {
+    pub binary: AdoptiumBinary,
+    pub release_name: String,
+    pub version: AdoptiumVersionData,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct AdoptiumBinary {
+    pub os: String,
+    pub architecture: String,
+    pub image_type: String,
+    pub package: AdoptiumPackage,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AdoptiumPackage {
+    pub name: String,
+    pub link: String,
+    pub size: u64,
+    pub checksum: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct AdoptiumVersionData {
+    pub major: u32,
+    pub minor: u32,
+    pub security: u32,
+    pub semver: String,
+    pub openjdk_version: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
+pub struct AvailableReleases {
+    pub available_releases: Vec<u32>,
+    pub available_lts_releases: Vec<u32>,
+    pub most_recent_lts: Option<u32>,
+    pub most_recent_feature_release: Option<u32>,
+}
+
+pub struct AdoptiumProvider;
+
+impl AdoptiumProvider {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for AdoptiumProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl JavaProvider for AdoptiumProvider {
+    async fn fetch_catalog(
+        &self,
+        app_handle: &AppHandle,
+        force_refresh: bool,
+    ) -> Result<JavaCatalog, String> {
+        if !force_refresh {
+            if let Some(cached) = super::super::load_cached_catalog(app_handle) {
+                return Ok(cached);
+            }
+        }
+
+        let os = self.os_name();
+        let arch = self.arch_name();
+        let client = reqwest::Client::new();
+
+        let releases_url = format!("{}/info/available_releases", ADOPTIUM_API_BASE);
+        let available: AvailableReleases = client
+            .get(&releases_url)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch available releases: {}", e))?
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse available releases: {}", e))?;
+
+        let mut releases = Vec::new();
+
+        for major_version in &available.available_releases {
+            for image_type in &["jre", "jdk"] {
+                let url = format!(
+                    "{}/assets/latest/{}/hotspot?os={}&architecture={}&image_type={}",
+                    ADOPTIUM_API_BASE, major_version, os, arch, image_type
+                );
+
+                match client
+                    .get(&url)
+                    .header("Accept", "application/json")
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            if let Ok(assets) = response.json::<Vec<AdoptiumAsset>>().await {
+                                if let Some(asset) = assets.into_iter().next() {
+                                    let release_date = asset.binary.updated_at.clone();
+                                    let release_info = JavaReleaseInfo {
+                                        major_version: *major_version,
+                                        image_type: image_type.to_string(),
+                                        version: asset.version.semver.clone(),
+                                        release_name: asset.release_name.clone(),
+                                        release_date,
+                                        file_size: asset.binary.package.size,
+                                        checksum: asset.binary.package.checksum,
+                                        download_url: asset.binary.package.link,
+                                        is_lts: available
+                                            .available_lts_releases
+                                            .contains(major_version),
+                                        is_available: true,
+                                        architecture: asset.binary.architecture.clone(),
+                                    };
+                                    releases.push(release_info);
+                                }
+                            }
+                        } else {
+                            let release_info = JavaReleaseInfo {
+                                major_version: *major_version,
+                                image_type: image_type.to_string(),
+                                version: format!("{}.x", major_version),
+                                release_name: format!("jdk-{}", major_version),
+                                release_date: None,
+                                file_size: 0,
+                                checksum: None,
+                                download_url: String::new(),
+                                is_lts: available.available_lts_releases.contains(major_version),
+                                is_available: false,
+                                architecture: arch.to_string(),
+                            };
+                            releases.push(release_info);
+                        }
+                    }
+                    Err(_) => {
+                        releases.push(JavaReleaseInfo {
+                            major_version: *major_version,
+                            image_type: image_type.to_string(),
+                            version: format!("{}.x", major_version),
+                            release_name: format!("jdk-{}", major_version),
+                            release_date: None,
+                            file_size: 0,
+                            checksum: None,
+                            download_url: String::new(),
+                            is_lts: available.available_lts_releases.contains(major_version),
+                            is_available: false,
+                            architecture: arch.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let catalog = JavaCatalog {
+            releases,
+            available_major_versions: available.available_releases,
+            lts_versions: available.available_lts_releases,
+            cached_at: now,
+        };
+
+        let _ = super::super::save_catalog_cache(app_handle, &catalog);
+
+        Ok(catalog)
+    }
+
+    async fn fetch_release(
+        &self,
+        major_version: u32,
+        image_type: ImageType,
+    ) -> Result<JavaDownloadInfo, String> {
+        let os = self.os_name();
+        let arch = self.arch_name();
+
+        let url = format!(
+            "{}/assets/latest/{}/hotspot?os={}&architecture={}&image_type={}",
+            ADOPTIUM_API_BASE, major_version, os, arch, image_type
+        );
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(&url)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|e| format!("Network request failed: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "Adoptium API returned error: {} - The version/platform might be unavailable",
+                response.status()
+            ));
+        }
+
+        let assets: Vec<AdoptiumAsset> = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse API response: {}", e))?;
+
+        let asset = assets
+            .into_iter()
+            .next()
+            .ok_or_else(|| format!("Java {} {} download not found", major_version, image_type))?;
+
+        Ok(JavaDownloadInfo {
+            version: asset.version.semver.clone(),
+            release_name: asset.release_name,
+            download_url: asset.binary.package.link,
+            file_name: asset.binary.package.name,
+            file_size: asset.binary.package.size,
+            checksum: asset.binary.package.checksum,
+            image_type: asset.binary.image_type,
+        })
+    }
+
+    async fn available_versions(&self) -> Result<Vec<u32>, String> {
+        let url = format!("{}/info/available_releases", ADOPTIUM_API_BASE);
+
+        let response = reqwest::get(url)
+            .await
+            .map_err(|e| format!("Network request failed: {}", e))?;
+
+        let releases: AvailableReleases = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+        Ok(releases.available_releases)
+    }
+
+    fn provider_name(&self) -> &'static str {
+        "adoptium"
+    }
+
+    fn os_name(&self) -> &'static str {
+        #[cfg(target_os = "linux")]
+        {
+            if std::path::Path::new("/etc/alpine-release").exists() {
+                return "alpine-linux";
+            }
+            "linux"
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "mac"
+        }
+        #[cfg(target_os = "windows")]
+        {
+            "windows"
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        {
+            "linux"
+        }
+    }
+
+    fn arch_name(&self) -> &'static str {
+        #[cfg(target_arch = "x86_64")]
+        {
+            "x64"
+        }
+        #[cfg(target_arch = "aarch64")]
+        {
+            "aarch64"
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            "x86"
+        }
+        #[cfg(target_arch = "arm")]
+        {
+            "arm"
+        }
+        #[cfg(not(any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "arm"
+        )))]
+        {
+            "x64"
+        }
+    }
+
+    fn install_prefix(&self) -> &'static str {
+        "temurin"
+    }
+}

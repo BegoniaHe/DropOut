@@ -204,7 +204,7 @@ async fn start_game(
     let mut java_path_to_use = config.java_path.clone();
     if !java_path_to_use.is_empty() && java_path_to_use != "java" {
         let is_compatible =
-            core::java::is_java_compatible(&java_path_to_use, required_java_major, max_java_major);
+            core::java::is_java_compatible(&java_path_to_use, required_java_major, max_java_major).await;
 
         if !is_compatible {
             emit_log!(
@@ -216,7 +216,7 @@ async fn start_game(
 
             // Try to find a compatible Java version
             if let Some(compatible_java) =
-                core::java::get_compatible_java(app_handle, required_java_major, max_java_major)
+                core::java::get_compatible_java(app_handle, required_java_major, max_java_major).await
             {
                 emit_log!(
                     window,
@@ -252,7 +252,7 @@ async fn start_game(
     } else {
         // No Java configured, try to find a compatible one
         if let Some(compatible_java) =
-            core::java::get_compatible_java(app_handle, required_java_major, max_java_major)
+            core::java::get_compatible_java(app_handle, required_java_major, max_java_major).await
         {
             emit_log!(
                 window,
@@ -1556,10 +1556,18 @@ async fn refresh_account(
 
 /// Detect Java installations on the system
 #[tauri::command]
+async fn detect_all_java_installations(
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<core::java::JavaInstallation>, String> {
+    Ok(core::java::detect_all_java_installations(&app_handle).await)
+}
+
+/// Alias for detect_all_java_installations (for backward compatibility)
+#[tauri::command]
 async fn detect_java(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<core::java::JavaInstallation>, String> {
-    Ok(core::java::detect_all_java_installations(&app_handle))
+    Ok(core::java::detect_all_java_installations(&app_handle).await)
 }
 
 /// Get recommended Java for a specific Minecraft version
@@ -1567,7 +1575,7 @@ async fn detect_java(
 async fn get_recommended_java(
     required_major_version: Option<u64>,
 ) -> Result<Option<core::java::JavaInstallation>, String> {
-    Ok(core::java::get_recommended_java(required_major_version))
+    Ok(core::java::get_recommended_java(required_major_version).await)
 }
 
 /// Get Adoptium Java download info
@@ -2065,7 +2073,7 @@ async fn install_forge(
         config.java_path.clone()
     } else {
         // Try to find a suitable Java installation
-        let javas = core::java::detect_all_java_installations(app_handle);
+        let javas = core::java::detect_all_java_installations(app_handle).await;
         if let Some(java) = javas.first() {
             java.path.clone()
         } else {
