@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+use super::error::JavaError;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JavaConfig {
     pub user_defined_paths: Vec<String>,
@@ -34,26 +36,43 @@ pub fn load_java_config(app_handle: &AppHandle) -> JavaConfig {
     }
 
     match std::fs::read_to_string(&config_path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-        Err(_) => JavaConfig::default(),
+        Ok(content) => match serde_json::from_str(&content) {
+            Ok(config) => config,
+            Err(err) => {
+                // Log the error but don't panic - return default config
+                log::warn!(
+                    "Failed to parse Java config at {}: {}. Using default configuration.",
+                    config_path.display(),
+                    err
+                );
+                JavaConfig::default()
+            }
+        },
+        Err(err) => {
+            log::warn!(
+                "Failed to read Java config at {}: {}. Using default configuration.",
+                config_path.display(),
+                err
+            );
+            JavaConfig::default()
+        }
     }
 }
 
-pub fn save_java_config(app_handle: &AppHandle, config: &JavaConfig) -> Result<(), String> {
+pub fn save_java_config(app_handle: &AppHandle, config: &JavaConfig) -> Result<(), JavaError> {
     let config_path = get_java_config_path(app_handle);
-    let content = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(
-        config_path
-            .parent()
-            .expect("Java config path should have a parent directory"),
-    )
-    .map_err(|e| e.to_string())?;
-    std::fs::write(&config_path, content).map_err(|e| e.to_string())?;
+    let content = serde_json::to_string_pretty(config)?;
+
+    std::fs::create_dir_all(config_path.parent().ok_or_else(|| {
+        JavaError::InvalidConfig("Java config path has no parent directory".to_string())
+    })?)?;
+
+    std::fs::write(&config_path, content)?;
     Ok(())
 }
 
 #[allow(dead_code)]
-pub fn add_user_defined_path(app_handle: &AppHandle, path: String) -> Result<(), String> {
+pub fn add_user_defined_path(app_handle: &AppHandle, path: String) -> Result<(), JavaError> {
     let mut config = load_java_config(app_handle);
     if !config.user_defined_paths.contains(&path) {
         config.user_defined_paths.push(path);
@@ -62,14 +81,17 @@ pub fn add_user_defined_path(app_handle: &AppHandle, path: String) -> Result<(),
 }
 
 #[allow(dead_code)]
-pub fn remove_user_defined_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+pub fn remove_user_defined_path(app_handle: &AppHandle, path: &str) -> Result<(), JavaError> {
     let mut config = load_java_config(app_handle);
     config.user_defined_paths.retain(|p| p != path);
     save_java_config(app_handle, &config)
 }
 
 #[allow(dead_code)]
-pub fn set_preferred_java_path(app_handle: &AppHandle, path: Option<String>) -> Result<(), String> {
+pub fn set_preferred_java_path(
+    app_handle: &AppHandle,
+    path: Option<String>,
+) -> Result<(), JavaError> {
     let mut config = load_java_config(app_handle);
     config.preferred_java_path = path;
     save_java_config(app_handle, &config)
@@ -82,11 +104,11 @@ pub fn get_preferred_java_path(app_handle: &AppHandle) -> Option<String> {
 }
 
 #[allow(dead_code)]
-pub fn update_last_detection_time(app_handle: &AppHandle) -> Result<(), String> {
+pub fn update_last_detection_time(app_handle: &AppHandle) -> Result<(), JavaError> {
     let mut config = load_java_config(app_handle);
     config.last_detection_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .map_err(|e| JavaError::Other(format!("System time error: {}", e)))?
         .as_secs();
     save_java_config(app_handle, &config)
 }

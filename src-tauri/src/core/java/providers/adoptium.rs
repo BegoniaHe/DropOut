@@ -1,5 +1,6 @@
+use crate::core::java::error::JavaError;
 use crate::core::java::provider::JavaProvider;
-use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaError, JavaReleaseInfo};
+use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaReleaseInfo};
 use serde::Deserialize;
 use tauri::AppHandle;
 
@@ -183,7 +184,10 @@ impl JavaProvider for AdoptiumProvider {
                     // Task completed but returned None, should not happen in current implementation
                 }
                 Err(e) => {
-                    eprintln!("AdoptiumProvider::fetch_catalog task join error: {:?}", e);
+                    return Err(JavaError::NetworkError(format!(
+                        "Failed to join Adoptium catalog fetch task: {}",
+                        e
+                    )));
                 }
             }
         }
