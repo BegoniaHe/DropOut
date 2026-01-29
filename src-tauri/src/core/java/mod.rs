@@ -3,11 +3,14 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager};
 
 pub mod detection;
+pub mod error;
 pub mod persistence;
 pub mod priority;
-pub mod validation;
 pub mod provider;
 pub mod providers;
+pub mod validation;
+
+pub use error::JavaError;
 
 /// Remove the UNC prefix (\\?\) from Windows paths
 pub fn strip_unc_prefix(path: PathBuf) -> PathBuf {
@@ -94,8 +97,6 @@ pub struct JavaDownloadInfo {
     pub image_type: String,       // "jre" or "jdk"
 }
 
-
-
 pub fn get_java_install_dir(app_handle: &AppHandle) -> PathBuf {
     app_handle.path().app_data_dir().unwrap().join("java")
 }
@@ -153,7 +154,10 @@ pub async fn fetch_java_catalog(
     force_refresh: bool,
 ) -> Result<JavaCatalog, String> {
     let provider = AdoptiumProvider::new();
-    provider.fetch_catalog(app_handle, force_refresh).await
+    provider
+        .fetch_catalog(app_handle, force_refresh)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn fetch_java_release(
@@ -161,12 +165,18 @@ pub async fn fetch_java_release(
     image_type: ImageType,
 ) -> Result<JavaDownloadInfo, String> {
     let provider = AdoptiumProvider::new();
-    provider.fetch_release(major_version, image_type).await
+    provider
+        .fetch_release(major_version, image_type)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn fetch_available_versions() -> Result<Vec<u32>, String> {
     let provider = AdoptiumProvider::new();
-    provider.available_versions().await
+    provider
+        .available_versions()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn download_and_install_java(
@@ -180,7 +190,12 @@ pub async fn download_and_install_java(
     let file_name = info.file_name.clone();
 
     let install_base = custom_path.unwrap_or_else(|| get_java_install_dir(app_handle));
-    let version_dir = install_base.join(format!("{}-{}-{}", provider.install_prefix(), major_version, image_type));
+    let version_dir = install_base.join(format!(
+        "{}-{}-{}",
+        provider.install_prefix(),
+        major_version,
+        image_type
+    ));
 
     std::fs::create_dir_all(&install_base)
         .map_err(|e| format!("Failed to create installation directory: {}", e))?;
@@ -319,48 +334,48 @@ fn find_top_level_dir(extract_dir: &PathBuf) -> Result<String, String> {
 }
 
 pub async fn detect_java_installations() -> Vec<JavaInstallation> {
-	let mut installations = Vec::new();
-	let candidates = detection::get_java_candidates();
+    let mut installations = Vec::new();
+    let candidates = detection::get_java_candidates();
 
-	for candidate in candidates {
-		if let Some(java) = validation::check_java_installation(&candidate).await {
-			if !installations
-				.iter()
-				.any(|j: &JavaInstallation| j.path == java.path)
-			{
-				installations.push(java);
-			}
-		}
-	}
+    for candidate in candidates {
+        if let Some(java) = validation::check_java_installation(&candidate).await {
+            if !installations
+                .iter()
+                .any(|j: &JavaInstallation| j.path == java.path)
+            {
+                installations.push(java);
+            }
+        }
+    }
 
-	installations.sort_by(|a, b| {
-		let v_a = validation::parse_java_version(&a.version);
-		let v_b = validation::parse_java_version(&b.version);
-		v_b.cmp(&v_a)
-	});
+    installations.sort_by(|a, b| {
+        let v_a = validation::parse_java_version(&a.version);
+        let v_b = validation::parse_java_version(&b.version);
+        v_b.cmp(&v_a)
+    });
 
-	installations
+    installations
 }
 
 pub async fn get_recommended_java(required_major_version: Option<u64>) -> Option<JavaInstallation> {
-	let installations = detect_java_installations().await;
+    let installations = detect_java_installations().await;
 
-	if let Some(required) = required_major_version {
-		installations.into_iter().find(|java| {
-			let major = validation::parse_java_version(&java.version);
-			major >= required as u32
-		})
-	} else {
-		installations.into_iter().next()
-	}
+    if let Some(required) = required_major_version {
+        installations.into_iter().find(|java| {
+            let major = validation::parse_java_version(&java.version);
+            major >= required as u32
+        })
+    } else {
+        installations.into_iter().next()
+    }
 }
 
 pub async fn get_compatible_java(
-	app_handle: &AppHandle,
-	required_major_version: Option<u64>,
-	max_major_version: Option<u32>,
+    app_handle: &AppHandle,
+    required_major_version: Option<u64>,
+    max_major_version: Option<u32>,
 ) -> Option<JavaInstallation> {
-	let installations = detect_all_java_installations(app_handle).await;
+    let installations = detect_all_java_installations(app_handle).await;
 
     installations.into_iter().find(|java| {
         let major = validation::parse_java_version(&java.version);
@@ -369,9 +384,9 @@ pub async fn get_compatible_java(
 }
 
 pub async fn is_java_compatible(
-	java_path: &str,
-	required_major_version: Option<u64>,
-	max_major_version: Option<u32>,
+    java_path: &str,
+    required_major_version: Option<u64>,
+    max_major_version: Option<u32>,
 ) -> bool {
     let java_path_buf = PathBuf::from(java_path);
     if let Some(java) = validation::check_java_installation(&java_path_buf).await {
@@ -383,34 +398,34 @@ pub async fn is_java_compatible(
 }
 
 pub async fn detect_all_java_installations(app_handle: &AppHandle) -> Vec<JavaInstallation> {
-	let mut installations = detect_java_installations().await;
+    let mut installations = detect_java_installations().await;
 
-	let dropout_java_dir = get_java_install_dir(app_handle);
-	if dropout_java_dir.exists() {
-		if let Ok(entries) = std::fs::read_dir(&dropout_java_dir) {
-			for entry in entries.flatten() {
-				let path = entry.path();
-				if path.is_dir() {
-					let java_bin = find_java_executable(&path);
-					if let Some(java_path) = java_bin {
-						if let Some(java) = validation::check_java_installation(&java_path).await {
-							if !installations.iter().any(|j| j.path == java.path) {
-								installations.push(java);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+    let dropout_java_dir = get_java_install_dir(app_handle);
+    if dropout_java_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&dropout_java_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    let java_bin = find_java_executable(&path);
+                    if let Some(java_path) = java_bin {
+                        if let Some(java) = validation::check_java_installation(&java_path).await {
+                            if !installations.iter().any(|j| j.path == java.path) {
+                                installations.push(java);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-	installations.sort_by(|a, b| {
-		let v_a = validation::parse_java_version(&a.version);
-		let v_b = validation::parse_java_version(&b.version);
-		v_b.cmp(&v_a)
-	});
+    installations.sort_by(|a, b| {
+        let v_a = validation::parse_java_version(&a.version);
+        let v_b = validation::parse_java_version(&b.version);
+        v_b.cmp(&v_a)
+    });
 
-	installations
+    installations
 }
 
 fn find_java_executable(dir: &PathBuf) -> Option<PathBuf> {

@@ -208,7 +208,6 @@ async fn start_game(
 
     let java_installation = core::java::priority::resolve_java_for_launch(
         app_handle,
-        &window,
         instance.java_path_override.as_deref(),
         Some(&config.java_path),
         required_java_major,

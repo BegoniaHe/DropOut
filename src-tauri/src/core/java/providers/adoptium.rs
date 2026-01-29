@@ -1,5 +1,6 @@
 use crate::core::java::error::JavaError;
 use crate::core::java::provider::JavaProvider;
+use crate::core::java::save_catalog_cache;
 use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaReleaseInfo};
 use serde::Deserialize;
 use tauri::AppHandle;
@@ -72,7 +73,7 @@ impl JavaProvider for AdoptiumProvider {
         force_refresh: bool,
     ) -> Result<JavaCatalog, JavaError> {
         if !force_refresh {
-            if let Ok(Some(cached)) = crate::core::java::load_cached_catalog(app_handle) {
+            if let Some(cached) = crate::core::java::load_cached_catalog(app_handle) {
                 return Ok(cached);
             }
         }
@@ -90,7 +91,7 @@ impl JavaProvider for AdoptiumProvider {
             .map_err(|e| {
                 JavaError::NetworkError(format!("Failed to fetch available releases: {}", e))
             })?
-            .json()
+            .json::<AvailableReleases>()
             .await
             .map_err(|e| {
                 JavaError::SerializationError(format!("Failed to parse available releases: {}", e))
@@ -202,10 +203,9 @@ impl JavaProvider for AdoptiumProvider {
             available_major_versions: available.available_releases,
             lts_versions: available.available_lts_releases,
             cached_at: now,
-            cache_version: 1,
         };
 
-        let _ = super::super::save_catalog_cache(app_handle, &catalog);
+        let _ = save_catalog_cache(app_handle, &catalog);
 
         Ok(catalog)
     }
@@ -238,9 +238,10 @@ impl JavaProvider for AdoptiumProvider {
             )));
         }
 
-        let assets: Vec<AdoptiumAsset> = response.json().await.map_err(|e| {
-            JavaError::SerializationError(format!("Failed to parse API response: {}", e))
-        })?;
+        let assets: Vec<AdoptiumAsset> =
+            response.json::<Vec<AdoptiumAsset>>().await.map_err(|e| {
+                JavaError::SerializationError(format!("Failed to parse API response: {}", e))
+            })?;
 
         let asset = assets
             .into_iter()
@@ -265,9 +266,10 @@ impl JavaProvider for AdoptiumProvider {
             .await
             .map_err(|e| JavaError::NetworkError(format!("Network request failed: {}", e)))?;
 
-        let releases: AvailableReleases = response.json().await.map_err(|e| {
-            JavaError::SerializationError(format!("Failed to parse response: {}", e))
-        })?;
+        let releases: AvailableReleases =
+            response.json::<AvailableReleases>().await.map_err(|e| {
+                JavaError::SerializationError(format!("Failed to parse response: {}", e))
+            })?;
 
         Ok(releases.available_releases)
     }
