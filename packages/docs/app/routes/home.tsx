@@ -55,42 +55,36 @@ export default function Home() {
         {/* Features Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           <div className="p-6 rounded-lg border border-fd-border bg-fd-card">
-            <div className="text-2xl mb-3">🚀</div>
             <h3 className="font-semibold text-lg mb-2">High Performance</h3>
             <p className="text-sm text-fd-muted-foreground">
               Built with Rust and Tauri for minimal resource usage and fast startup times
             </p>
           </div>
           <div className="p-6 rounded-lg border border-fd-border bg-fd-card">
-            <div className="text-2xl mb-3">🎨</div>
             <h3 className="font-semibold text-lg mb-2">Modern UI</h3>
             <p className="text-sm text-fd-muted-foreground">
               Clean, distraction-free interface with Svelte 5 and Tailwind CSS 4
             </p>
           </div>
           <div className="p-6 rounded-lg border border-fd-border bg-fd-card">
-            <div className="text-2xl mb-3">🔐</div>
             <h3 className="font-semibold text-lg mb-2">Secure Auth</h3>
             <p className="text-sm text-fd-muted-foreground">
               Microsoft OAuth 2.0 with device code flow and offline mode support
             </p>
           </div>
           <div className="p-6 rounded-lg border border-fd-border bg-fd-card">
-            <div className="text-2xl mb-3">🔧</div>
             <h3 className="font-semibold text-lg mb-2">Mod Loaders</h3>
             <p className="text-sm text-fd-muted-foreground">
               Built-in support for Fabric and Forge with automatic version management
             </p>
           </div>
           <div className="p-6 rounded-lg border border-fd-border bg-fd-card">
-            <div className="text-2xl mb-3">☕</div>
             <h3 className="font-semibold text-lg mb-2">Java Management</h3>
             <p className="text-sm text-fd-muted-foreground">
               Auto-detection and integrated downloader for Adoptium JDK/JRE
             </p>
           </div>
           <div className="p-6 rounded-lg border border-fd-border bg-fd-card">
-            <div className="text-2xl mb-3">📦</div>
             <h3 className="font-semibold text-lg mb-2">Instance System</h3>
             <p className="text-sm text-fd-muted-foreground">
               Isolated game environments with independent configs and mods
