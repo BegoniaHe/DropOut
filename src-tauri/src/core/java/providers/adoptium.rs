@@ -4,18 +4,27 @@ use crate::core::java::save_catalog_cache;
 use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaReleaseInfo};
 use serde::Deserialize;
 use tauri::AppHandle;
+use ts_rs::TS;
 
 const ADOPTIUM_API_BASE: &str = "https://api.adoptium.net/v3";
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/providers/adoptium.ts"
+)]
 pub struct AdoptiumAsset {
     pub binary: AdoptiumBinary,
     pub release_name: String,
     pub version: AdoptiumVersionData,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
 #[allow(dead_code)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/providers/adoptium.ts"
+)]
 pub struct AdoptiumBinary {
     pub os: String,
     pub architecture: String,
@@ -25,7 +34,11 @@ pub struct AdoptiumBinary {
     pub updated_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/providers/adoptium.ts"
+)]
 pub struct AdoptiumPackage {
     pub name: String,
     pub link: String,
@@ -33,8 +46,12 @@ pub struct AdoptiumPackage {
     pub checksum: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
 #[allow(dead_code)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/providers/adoptium.ts"
+)]
 pub struct AdoptiumVersionData {
     pub major: u32,
     pub minor: u32,
@@ -43,8 +60,12 @@ pub struct AdoptiumVersionData {
     pub openjdk_version: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
 #[allow(dead_code)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/providers/adoptium.ts"
+)]
 pub struct AvailableReleases {
     pub available_releases: Vec<u32>,
     pub available_lts_releases: Vec<u32>,
