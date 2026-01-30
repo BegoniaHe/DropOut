@@ -25,4 +25,4 @@ export type JavaDownloadProgress = { fileName: string, downloadedBytes: bigint, 
 /**
  * Pending download task for queue persistence
  */
-export type PendingJavaDownload = { majorVersion: number, imageType: string, downloadUrl: string, fileName: string, fileSize: bigint, checksum: string | null, installPath: string, createdAt: bigint, };
+export type PendingJavaDownload = { majorVersion: number, imageType: string, downloadUrl: string, fileName: string, fileSize: bigint, checksum: string | null, installPath: string, createdAt: bigint, providerName: string | null, };

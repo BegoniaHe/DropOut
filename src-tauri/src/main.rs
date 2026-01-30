@@ -1549,7 +1549,7 @@ async fn fetch_adoptium_java(
         "jdk" => core::java::ImageType::Jdk,
         _ => core::java::ImageType::Jre,
     };
-    core::java::fetch_java_release(major_version, img_type)
+    core::java::fetch_java_release_with_provider(None, major_version, img_type)
         .await
         .map_err(|e| e.to_string())
 }
@@ -1567,15 +1567,21 @@ async fn download_adoptium_java(
         _ => core::java::ImageType::Jre,
     };
     let path = custom_path.map(std::path::PathBuf::from);
-    core::java::download_and_install_java(&app_handle, major_version, img_type, path)
-        .await
-        .map_err(|e| e.to_string())
+    core::java::download_and_install_java_with_provider(
+        &app_handle,
+        major_version,
+        img_type,
+        path,
+        None,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Get available Adoptium Java versions
 #[tauri::command]
 async fn fetch_available_java_versions() -> Result<Vec<u32>, String> {
-    core::java::fetch_available_versions()
+    core::java::fetch_available_versions_with_provider(None)
         .await
         .map_err(|e| e.to_string())
 }
@@ -1585,7 +1591,7 @@ async fn fetch_available_java_versions() -> Result<Vec<u32>, String> {
 async fn fetch_java_catalog(
     app_handle: tauri::AppHandle,
 ) -> Result<core::java::JavaCatalog, String> {
-    core::java::fetch_java_catalog(&app_handle, false)
+    core::java::fetch_java_catalog_with_provider(&app_handle, false, None)
         .await
         .map_err(|e| e.to_string())
 }
@@ -1595,7 +1601,7 @@ async fn fetch_java_catalog(
 async fn refresh_java_catalog(
     app_handle: tauri::AppHandle,
 ) -> Result<core::java::JavaCatalog, String> {
-    core::java::fetch_java_catalog(&app_handle, true)
+    core::java::fetch_java_catalog_with_provider(&app_handle, true, None)
         .await
         .map_err(|e| e.to_string())
 }
@@ -2535,6 +2541,16 @@ fn main() {
             }
 
             app.manage(instance_state);
+
+            // Register Java providers (ProviderRegistry) and set default provider (Adoptium)
+            let provider_registry = crate::core::java::providers::ProviderRegistry::new();
+            // Register Adoptium as default provider
+            provider_registry.register(
+                "adoptium",
+                std::sync::Arc::new(crate::core::java::providers::AdoptiumProvider::new()),
+                true,
+            );
+            app.manage(provider_registry);
 
             // Load saved account on startup
             let app_dir = app.path().app_data_dir().unwrap();

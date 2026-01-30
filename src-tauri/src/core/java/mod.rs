@@ -28,7 +28,8 @@ pub fn strip_unc_prefix(path: PathBuf) -> PathBuf {
 use crate::core::downloader::{DownloadQueue, JavaDownloadProgress, PendingJavaDownload};
 use crate::utils::zip;
 use provider::JavaProvider;
-use providers::AdoptiumProvider;
+use providers::{AdoptiumProvider, ProviderRegistry};
+use std::sync::Arc;
 
 const CACHE_DURATION_SECS: u64 = 24 * 60 * 60;
 
@@ -118,16 +119,58 @@ pub fn get_java_install_dir(app_handle: &AppHandle) -> PathBuf {
     app_handle.path().app_data_dir().unwrap().join("java")
 }
 
-fn get_catalog_cache_path(app_handle: &AppHandle) -> PathBuf {
-    app_handle
-        .path()
-        .app_data_dir()
-        .unwrap()
-        .join("java_catalog_cache.json")
+/// Get legacy catalog cache path (keeps backward compatibility).
+pub fn get_catalog_cache_path(app_handle: &AppHandle) -> PathBuf {
+    get_catalog_cache_path_for_provider(app_handle, None)
+}
+
+/// Get the catalog cache path for a given provider name (or legacy default if None)
+pub fn get_catalog_cache_path_for_provider(
+    app_handle: &AppHandle,
+    provider_name: Option<&str>,
+) -> PathBuf {
+    let base = app_handle.path().app_data_dir().unwrap();
+    get_catalog_cache_path_for_base(&base, provider_name)
+}
+
+/// Construct a catalog cache path given a base app data directory and optional provider name.
+/// Exposed for tests so we don't need an AppHandle in unit tests.
+pub fn get_catalog_cache_path_for_base(
+    base_dir: &std::path::Path,
+    provider_name: Option<&str>,
+) -> PathBuf {
+    let file_name = if let Some(name) = provider_name {
+        format!("java_catalog_cache_{}.json", name)
+    } else {
+        "java_catalog_cache.json".to_string()
+    };
+    base_dir.join(file_name)
 }
 
 pub fn load_cached_catalog(app_handle: &AppHandle) -> Option<JavaCatalog> {
-    let cache_path = get_catalog_cache_path(app_handle);
+    load_cached_catalog_for_provider(app_handle, None)
+}
+
+/// Load cache for a specific provider (provider_name = None => legacy/default cache)
+pub fn load_cached_catalog_for_provider(
+    app_handle: &AppHandle,
+    provider_name: Option<&str>,
+) -> Option<JavaCatalog> {
+    let cache_path = get_catalog_cache_path_for_provider(app_handle, provider_name);
+    load_cached_catalog_from_path(&cache_path)
+}
+
+/// Load cache directly from a base path (testable without AppHandle)
+pub fn load_cached_catalog_from_base(
+    base_dir: &std::path::Path,
+    provider_name: Option<&str>,
+) -> Option<JavaCatalog> {
+    let cache_path = get_catalog_cache_path_for_base(base_dir, provider_name);
+    load_cached_catalog_from_path(&cache_path)
+}
+
+/// Internal helper: try to read and validate catalog from a concrete path
+fn load_cached_catalog_from_path(cache_path: &PathBuf) -> Option<JavaCatalog> {
     if !cache_path.exists() {
         return None;
     }
@@ -151,49 +194,234 @@ pub fn load_cached_catalog(app_handle: &AppHandle) -> Option<JavaCatalog> {
 }
 
 pub fn save_catalog_cache(app_handle: &AppHandle, catalog: &JavaCatalog) -> Result<(), String> {
-    let cache_path = get_catalog_cache_path(app_handle);
+    save_catalog_cache_for_provider(app_handle, None, catalog)
+}
+
+/// Save catalog cache for a specific provider (provider_name = None => legacy/default cache)
+pub fn save_catalog_cache_for_provider(
+    app_handle: &AppHandle,
+    provider_name: Option<&str>,
+    catalog: &JavaCatalog,
+) -> Result<(), String> {
+    let cache_path = get_catalog_cache_path_for_provider(app_handle, provider_name);
+    save_catalog_cache_to_path(&cache_path, catalog)
+}
+
+/// Save catalog cache directly to a base path (testable without AppHandle)
+pub fn save_catalog_cache_to_base(
+    base_dir: &std::path::Path,
+    provider_name: Option<&str>,
+    catalog: &JavaCatalog,
+) -> Result<(), String> {
+    let cache_path = get_catalog_cache_path_for_base(base_dir, provider_name);
+    save_catalog_cache_to_path(&cache_path, catalog)
+}
+
+/// Internal helper: write JSON to a concrete path ensuring parent dir exists
+fn save_catalog_cache_to_path(cache_path: &PathBuf, catalog: &JavaCatalog) -> Result<(), String> {
     let content = serde_json::to_string_pretty(catalog).map_err(|e| e.to_string())?;
-    std::fs::write(&cache_path, content).map_err(|e| e.to_string())?;
+    if let Some(parent) = cache_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(cache_path, content).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[allow(dead_code)]
 pub fn clear_catalog_cache(app_handle: &AppHandle) -> Result<(), String> {
-    let cache_path = get_catalog_cache_path(app_handle);
+    clear_catalog_cache_for_provider(app_handle, None)
+}
+
+/// Clear cache for a specific provider
+pub fn clear_catalog_cache_for_provider(
+    app_handle: &AppHandle,
+    provider_name: Option<&str>,
+) -> Result<(), String> {
+    let cache_path = get_catalog_cache_path_for_provider(app_handle, provider_name);
     if cache_path.exists() {
         std::fs::remove_file(&cache_path).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
+/// Clear cache file in a base dir (testable)
+pub fn clear_catalog_cache_from_base(
+    base_dir: &std::path::Path,
+    provider_name: Option<&str>,
+) -> Result<(), String> {
+    let cache_path = get_catalog_cache_path_for_base(base_dir, provider_name);
+    if cache_path.exists() {
+        std::fs::remove_file(&cache_path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+    use uuid::Uuid;
+
+    #[test]
+    fn test_catalog_cache_path_for_provider() {
+        let base = std::env::temp_dir().join(Uuid::new_v4().to_string());
+        fs::create_dir_all(&base).unwrap();
+
+        let p_adoptium = get_catalog_cache_path_for_base(&base, Some("adoptium"));
+        assert!(p_adoptium
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("java_catalog_cache_adoptium"));
+        assert_eq!(p_adoptium.parent().unwrap(), base.as_path());
+
+        let p_legacy = get_catalog_cache_path_for_base(&base, None);
+        assert_eq!(
+            p_legacy.file_name().unwrap().to_string_lossy(),
+            "java_catalog_cache.json"
+        );
+
+        // cleanup
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_save_and_load_catalog_for_provider() {
+        let base = std::env::temp_dir().join(Uuid::new_v4().to_string());
+        fs::create_dir_all(&base).unwrap();
+
+        let catalog = JavaCatalog {
+            releases: Vec::new(),
+            available_major_versions: vec![17, 21],
+            lts_versions: vec![17],
+            cached_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
+
+        // Save and load for provider name
+        save_catalog_cache_to_base(&base, Some("adoptium"), &catalog).unwrap();
+        let loaded = load_cached_catalog_from_base(&base, Some("adoptium")).unwrap();
+        assert_eq!(loaded.available_major_versions, vec![17, 21]);
+
+        // Clear and ensure absent
+        clear_catalog_cache_from_base(&base, Some("adoptium")).unwrap();
+        assert!(load_cached_catalog_from_base(&base, Some("adoptium")).is_none());
+
+        // cleanup
+        let _ = fs::remove_dir_all(&base);
+    }
+}
+
 pub async fn fetch_java_catalog(
     app_handle: &AppHandle,
     force_refresh: bool,
 ) -> Result<JavaCatalog, String> {
-    let provider = AdoptiumProvider::new();
-    provider
-        .fetch_catalog(app_handle, force_refresh)
-        .await
-        .map_err(|e| e.to_string())
+    // Backwards-compatible wrapper: no explicit provider -> use default provider (caller can pass provider-aware variant)
+    fetch_java_catalog_with_provider(app_handle, force_refresh, None).await
+}
+
+/// Provider-aware variant: if `provider` is None, falls back to AdoptiumProvider
+pub async fn fetch_java_catalog_with_provider(
+    app_handle: &AppHandle,
+    force_refresh: bool,
+    provider: Option<Arc<dyn JavaProvider + Send + Sync>>,
+) -> Result<JavaCatalog, String> {
+    if let Some(provider) = provider {
+        provider
+            .fetch_catalog(app_handle, force_refresh)
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        let provider = AdoptiumProvider::new();
+        provider
+            .fetch_catalog(app_handle, force_refresh)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// Provider-name-aware wrapper: resolve provider by name from app's ProviderRegistry (fallback to Adoptium)
+pub async fn fetch_java_catalog_with_provider_name(
+    app_handle: &AppHandle,
+    force_refresh: bool,
+    provider_name: Option<String>,
+) -> Result<JavaCatalog, String> {
+    let provider_impl = resolve_provider_from_app(app_handle, provider_name.as_deref());
+    fetch_java_catalog_with_provider(app_handle, force_refresh, Some(provider_impl)).await
 }
 
 pub async fn fetch_java_release(
     major_version: u32,
     image_type: ImageType,
 ) -> Result<JavaDownloadInfo, String> {
-    let provider = AdoptiumProvider::new();
-    provider
-        .fetch_release(major_version, image_type)
-        .await
-        .map_err(|e| e.to_string())
+    // Backwards-compatible wrapper
+    fetch_java_release_with_provider(None, major_version, image_type).await
+}
+
+/// Provider-aware variant: if `provider` is None, falls back to AdoptiumProvider
+pub async fn fetch_java_release_with_provider(
+    provider: Option<Arc<dyn JavaProvider + Send + Sync>>,
+    major_version: u32,
+    image_type: ImageType,
+) -> Result<JavaDownloadInfo, String> {
+    if let Some(provider) = provider {
+        provider
+            .fetch_release(major_version, image_type)
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        let provider = AdoptiumProvider::new();
+        provider
+            .fetch_release(major_version, image_type)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// Provider-name-aware wrapper: resolve provider by name from app's ProviderRegistry (fallback to Adoptium)
+pub async fn fetch_java_release_with_provider_name(
+    app_handle: &AppHandle,
+    major_version: u32,
+    image_type: ImageType,
+    provider_name: Option<String>,
+) -> Result<JavaDownloadInfo, String> {
+    let provider_impl = resolve_provider_from_app(app_handle, provider_name.as_deref());
+    fetch_java_release_with_provider(Some(provider_impl), major_version, image_type).await
 }
 
 pub async fn fetch_available_versions() -> Result<Vec<u32>, String> {
-    let provider = AdoptiumProvider::new();
-    provider
-        .available_versions()
-        .await
-        .map_err(|e| e.to_string())
+    // Backwards-compatible wrapper
+    fetch_available_versions_with_provider(None).await
+}
+
+/// Provider-aware variant: if `provider` is None, falls back to AdoptiumProvider
+pub async fn fetch_available_versions_with_provider(
+    provider: Option<Arc<dyn JavaProvider + Send + Sync>>,
+) -> Result<Vec<u32>, String> {
+    if let Some(provider) = provider {
+        provider
+            .available_versions()
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        let provider = AdoptiumProvider::new();
+        provider
+            .available_versions()
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// Provider-name-aware wrapper: resolve provider by name from app's ProviderRegistry (fallback to Adoptium)
+pub async fn fetch_available_versions_with_provider_name(
+    app_handle: &AppHandle,
+    provider_name: Option<String>,
+) -> Result<Vec<u32>, String> {
+    let provider_impl = resolve_provider_from_app(app_handle, provider_name.as_deref());
+    fetch_available_versions_with_provider(Some(provider_impl)).await
 }
 
 pub async fn download_and_install_java(
@@ -202,14 +430,41 @@ pub async fn download_and_install_java(
     image_type: ImageType,
     custom_path: Option<PathBuf>,
 ) -> Result<JavaInstallation, String> {
-    let provider = AdoptiumProvider::new();
-    let info = provider.fetch_release(major_version, image_type).await?;
+    // Backwards-compatible wrapper which uses default provider
+    download_and_install_java_with_provider(
+        app_handle,
+        major_version,
+        image_type,
+        custom_path,
+        None,
+    )
+    .await
+}
+
+/// Provider-aware variant. If `provider` is None, falls back to AdoptiumProvider.
+pub async fn download_and_install_java_with_provider(
+    app_handle: &AppHandle,
+    major_version: u32,
+    image_type: ImageType,
+    custom_path: Option<PathBuf>,
+    provider: Option<Arc<dyn JavaProvider + Send + Sync>>,
+) -> Result<JavaInstallation, String> {
+    let provider_impl: Arc<dyn JavaProvider + Send + Sync> = if let Some(p) = provider {
+        p
+    } else {
+        Arc::new(AdoptiumProvider::new())
+    };
+
+    // Fetch release info from chosen provider
+    let info = provider_impl
+        .fetch_release(major_version, image_type)
+        .await?;
     let file_name = info.file_name.clone();
 
     let install_base = custom_path.unwrap_or_else(|| get_java_install_dir(app_handle));
     let version_dir = install_base.join(format!(
         "{}-{}-{}",
-        provider.install_prefix(),
+        provider_impl.install_prefix(),
         major_version,
         image_type
     ));
@@ -230,10 +485,30 @@ pub async fn download_and_install_java(
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs(),
+        provider_name: Some(provider_impl.provider_name().to_string()),
     });
     queue.save(app_handle)?;
 
     let archive_path = install_base.join(&info.file_name);
+
+    /// Provider-name-aware wrapper: resolve provider by name from app's ProviderRegistry (fallback to Adoptium)
+    pub async fn download_and_install_java_with_provider_name(
+        app_handle: &AppHandle,
+        major_version: u32,
+        image_type: ImageType,
+        custom_path: Option<PathBuf>,
+        provider_name: Option<String>,
+    ) -> Result<JavaInstallation, String> {
+        let provider_impl = resolve_provider_from_app(app_handle, provider_name.as_deref());
+        download_and_install_java_with_provider(
+            app_handle,
+            major_version,
+            image_type,
+            custom_path,
+            Some(provider_impl),
+        )
+        .await
+    }
 
     let need_download = if archive_path.exists() {
         if let Some(expected_checksum) = &info.checksum {
@@ -317,7 +592,11 @@ pub async fn download_and_install_java(
         .await
         .ok_or_else(|| "Failed to verify Java installation".to_string())?;
 
-    queue.remove(major_version, &image_type.to_string());
+    queue.remove_with_provider(
+        major_version,
+        &image_type.to_string(),
+        Some(provider_impl.provider_name()),
+    );
     queue.save(app_handle)?;
 
     let _ = app_handle.emit(
@@ -334,6 +613,26 @@ pub async fn download_and_install_java(
     );
 
     Ok(installation)
+}
+
+fn resolve_provider_from_app(
+    app_handle: &AppHandle,
+    provider_name: Option<&str>,
+) -> Arc<dyn JavaProvider + Send + Sync> {
+    // Try to read ProviderRegistry from app state if available (use try_state to avoid panics if not managed)
+    if let Some(reg) = app_handle.try_state::<ProviderRegistry>() {
+        if let Some(name) = provider_name {
+            if let Some(p) = reg.get(name) {
+                return p;
+            }
+        }
+        if let Some(p) = reg.default() {
+            return p;
+        }
+    }
+
+    // Fallback to Adoptium directly
+    Arc::new(AdoptiumProvider::new())
 }
 
 fn find_top_level_dir(extract_dir: &PathBuf) -> Result<String, String> {
@@ -542,6 +841,6 @@ pub fn clear_pending_download(
     image_type: &str,
 ) -> Result<(), String> {
     let mut queue = DownloadQueue::load(app_handle);
-    queue.remove(major_version, image_type);
+    queue.remove_with_provider(major_version, image_type, None);
     queue.save(app_handle)
 }

@@ -1,10 +1,12 @@
 use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaError};
+use async_trait::async_trait;
 use tauri::AppHandle;
 
 /// Trait for Java distribution providers (e.g., Adoptium, Corretto)
 ///
 /// Implementations handle fetching Java catalogs and release information
 /// from different distribution providers.
+#[async_trait]
 pub trait JavaProvider: Send + Sync {
     /// Fetch the Java catalog (all available versions for this provider)
     ///

@@ -88,6 +88,7 @@ pub struct PendingJavaDownload {
     pub checksum: Option<String>,
     pub install_path: String,
     pub created_at: u64,
+    pub provider_name: Option<String>,
 }
 
 /// Download queue for persistence
@@ -133,17 +134,38 @@ impl DownloadQueue {
 
     /// Add a pending download
     pub fn add(&mut self, download: PendingJavaDownload) {
-        // Remove existing download for same version/type
+        // Remove existing download for same version/type/provider
         self.pending_downloads.retain(|d| {
-            !(d.major_version == download.major_version && d.image_type == download.image_type)
+            !(d.major_version == download.major_version
+                && d.image_type == download.image_type
+                && d.provider_name == download.provider_name)
         });
         self.pending_downloads.push(download);
     }
 
     /// Remove a completed or cancelled download
     pub fn remove(&mut self, major_version: u32, image_type: &str) {
-        self.pending_downloads
-            .retain(|d| !(d.major_version == major_version && d.image_type == image_type));
+        // Backwards-compatible: remove all pending downloads for this version/type (any provider)
+        self.remove_with_provider(major_version, image_type, None);
+    }
+
+    /// Remove a pending download, optionally filtering by provider_name
+    pub fn remove_with_provider(
+        &mut self,
+        major_version: u32,
+        image_type: &str,
+        provider_name: Option<&str>,
+    ) {
+        self.pending_downloads.retain(|d| {
+            if d.major_version != major_version || d.image_type != image_type {
+                true
+            } else if let Some(name) = provider_name {
+                d.provider_name.as_deref() != Some(name)
+            } else {
+                // provider_name is None => remove all entries matching version+image
+                false
+            }
+        });
     }
 }
 
@@ -684,4 +706,132 @@ pub async fn download_files(
 
     let _ = window.emit("download-complete", ());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+
+    #[test]
+    fn test_pending_javadownload_serde_backward_compat() {
+        let d = PendingJavaDownload {
+            major_version: 17,
+            image_type: "jre".to_string(),
+            download_url: "https://example.com/foo".to_string(),
+            file_name: "foo.tar.gz".to_string(),
+            file_size: 123,
+            checksum: Some("abc".to_string()),
+            install_path: "/tmp".to_string(),
+            created_at: 123456,
+            provider_name: Some("adoptium".to_string()),
+        };
+
+        let json = serde_json::to_string(&d).unwrap();
+        assert!(json.contains("\"providerName\""));
+        let deserialized: PendingJavaDownload = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.provider_name.as_deref(), Some("adoptium"));
+
+        // Legacy JSON (no providerName)
+        let legacy = r#"{
+            "majorVersion":17,
+            "imageType":"jre",
+            "downloadUrl":"https://example.com/foo",
+            "fileName":"foo.tar.gz",
+            "fileSize":123,
+            "checksum":"abc",
+            "installPath":"/tmp",
+            "createdAt":123456
+        }"#;
+
+        let d2: PendingJavaDownload = serde_json::from_str(legacy).unwrap();
+        assert!(d2.provider_name.is_none());
+    }
+
+    #[test]
+    fn test_download_queue_add_dedupe_with_provider() {
+        let mut q = DownloadQueue::default();
+        let base = PendingJavaDownload {
+            major_version: 17,
+            image_type: "jre".to_string(),
+            download_url: "u".to_string(),
+            file_name: "f".to_string(),
+            file_size: 1,
+            checksum: None,
+            install_path: "/x".to_string(),
+            created_at: 1,
+            provider_name: None,
+        };
+
+        q.add(base.clone());
+        assert_eq!(q.pending_downloads.len(), 1);
+
+        // same provider_name (None) dedupes
+        let same_none = PendingJavaDownload {
+            provider_name: None,
+            ..base.clone()
+        };
+        q.add(same_none);
+        assert_eq!(q.pending_downloads.len(), 1);
+
+        // different provider_name, keep both
+        let with_adoptium = PendingJavaDownload {
+            provider_name: Some("adoptium".to_string()),
+            ..base.clone()
+        };
+        q.add(with_adoptium.clone());
+        assert_eq!(q.pending_downloads.len(), 2);
+
+        // adding same provider should replace existing (still 2 entries)
+        let with_adoptium2 = PendingJavaDownload {
+            provider_name: Some("adoptium".to_string()),
+            ..base.clone()
+        };
+        q.add(with_adoptium2);
+        assert_eq!(q.pending_downloads.len(), 2);
+    }
+
+    #[test]
+    fn test_download_queue_remove_with_provider_filter() {
+        let mut q = DownloadQueue::default();
+        let base = PendingJavaDownload {
+            major_version: 17,
+            image_type: "jre".to_string(),
+            download_url: "u".to_string(),
+            file_name: "f".to_string(),
+            file_size: 1,
+            checksum: None,
+            install_path: "/x".to_string(),
+            created_at: 1,
+            provider_name: None,
+        };
+
+        let p1 = PendingJavaDownload {
+            provider_name: None,
+            ..base.clone()
+        };
+        let p2 = PendingJavaDownload {
+            provider_name: Some("adoptium".to_string()),
+            ..base.clone()
+        };
+        let p3 = PendingJavaDownload {
+            provider_name: Some("corretto".to_string()),
+            ..base.clone()
+        };
+
+        q.add(p1);
+        q.add(p2);
+        q.add(p3);
+        assert_eq!(q.pending_downloads.len(), 3);
+
+        q.remove_with_provider(17, "jre", Some("adoptium"));
+        assert_eq!(q.pending_downloads.len(), 2);
+        assert!(q
+            .pending_downloads
+            .iter()
+            .all(|d| d.provider_name.as_deref() != Some("adoptium")));
+
+        q.remove_with_provider(17, "jre", None);
+        assert_eq!(q.pending_downloads.len(), 0);
+    }
 }

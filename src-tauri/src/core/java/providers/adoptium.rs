@@ -1,7 +1,8 @@
 use crate::core::java::error::JavaError;
 use crate::core::java::provider::JavaProvider;
-use crate::core::java::save_catalog_cache;
+use crate::core::java::save_catalog_cache_for_provider;
 use crate::core::java::{ImageType, JavaCatalog, JavaDownloadInfo, JavaReleaseInfo};
+use async_trait::async_trait;
 use serde::Deserialize;
 use tauri::AppHandle;
 use ts_rs::TS;
@@ -87,14 +88,26 @@ impl Default for AdoptiumProvider {
     }
 }
 
+#[async_trait]
 impl JavaProvider for AdoptiumProvider {
     async fn fetch_catalog(
         &self,
         app_handle: &AppHandle,
         force_refresh: bool,
     ) -> Result<JavaCatalog, JavaError> {
+        // Cache key per provider+os+arch to avoid cross-provider/arch pollution
+        let provider_key = format!(
+            "{}-{}-{}",
+            self.provider_name(),
+            self.os_name(),
+            self.arch_name()
+        );
+
         if !force_refresh {
-            if let Some(cached) = crate::core::java::load_cached_catalog(app_handle) {
+            if let Some(cached) = crate::core::java::load_cached_catalog_for_provider(
+                app_handle,
+                Some(provider_key.as_str()),
+            ) {
                 return Ok(cached);
             }
         }
@@ -226,7 +239,7 @@ impl JavaProvider for AdoptiumProvider {
             cached_at: now,
         };
 
-        let _ = save_catalog_cache(app_handle, &catalog);
+        let _ = save_catalog_cache_for_provider(app_handle, Some(provider_key.as_str()), &catalog);
 
         Ok(catalog)
     }
@@ -351,5 +364,26 @@ impl JavaProvider for AdoptiumProvider {
 
     fn install_prefix(&self) -> &'static str {
         "temurin"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_cache_key_contains_provider_name() {
+        let provider = AdoptiumProvider::new();
+        let key = format!(
+            "{}-{}-{}",
+            provider.provider_name(),
+            provider.os_name(),
+            provider.arch_name()
+        );
+        assert!(key.starts_with("adoptium-"));
+        // ensure key contains provider name and platform/arch pieces
+        assert!(key.contains(provider.provider_name()));
+        assert!(key.contains(provider.os_name()));
+        assert!(key.contains(provider.arch_name()));
     }
 }
