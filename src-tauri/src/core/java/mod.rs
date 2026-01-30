@@ -260,8 +260,12 @@ pub fn clear_catalog_cache_from_base(
 mod tests {
     use super::*;
     use std::fs;
-    use std::path::Path;
     use uuid::Uuid;
+
+    // Additional imports used by the archive extraction test
+    use ::zip::write::FileOptions;
+    use ::zip::write::ZipWriter;
+    use std::fs::File;
 
     #[test]
     fn test_catalog_cache_path_for_provider() {
@@ -312,6 +316,48 @@ mod tests {
 
         // cleanup
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_extract_archive_and_find_java_bin_zip() {
+        // prepare a temporary directory with a top-level dir that contains bin/java and bin/java.exe
+        let base = std::env::temp_dir().join(Uuid::new_v4().to_string());
+        fs::create_dir_all(&base.join("topdir").join("bin")).unwrap();
+
+        let bin_dir = base.join("topdir").join("bin");
+        // a simple shell script that prints java version to stderr (for unix-like systems)
+        fs::write(
+            bin_dir.join("java"),
+            b"#!/bin/sh\necho 'openjdk version \"17.0.1\"' >&2\n",
+        )
+        .unwrap();
+        // a placeholder for java.exe (exists on Windows)
+        fs::write(bin_dir.join("java.exe"), b"dummy").unwrap();
+
+        // create a zip archive containing topdir/bin/java and topdir/bin/java.exe
+        let archive_path = base.join("test.zip");
+        let file = File::create(&archive_path).unwrap();
+        let mut zipw = ZipWriter::new(file);
+        let options: ::zip::write::FileOptions<'_, ::zip::write::ExtendedFileOptions> =
+            ::zip::write::FileOptions::default();
+
+        let mut f = File::open(bin_dir.join("java")).unwrap();
+        zipw.start_file("topdir/bin/java", options.clone()).unwrap();
+
+        let mut f2 = File::open(bin_dir.join("java.exe")).unwrap();
+        zipw.start_file("topdir/bin/java.exe", options.clone())
+            .unwrap();
+
+        zipw.finish().unwrap();
+
+        let extract_to = base.join("extract");
+        fs::create_dir_all(&extract_to).unwrap();
+
+        let (top, java_bin) =
+            extract_archive_and_find_java_bin(&archive_path, &extract_to, "test.zip").unwrap();
+        assert_eq!(top, "topdir");
+        // Ensure the returned java_bin path exists after extraction
+        assert!(java_bin.exists());
     }
 }
 
@@ -462,12 +508,6 @@ pub async fn download_and_install_java_with_provider(
     let file_name = info.file_name.clone();
 
     let install_base = custom_path.unwrap_or_else(|| get_java_install_dir(app_handle));
-    let version_dir = install_base.join(format!(
-        "{}-{}-{}",
-        provider_impl.install_prefix(),
-        major_version,
-        image_type
-    ));
 
     std::fs::create_dir_all(&install_base)
         .map_err(|e| format!("Failed to create installation directory: {}", e))?;
@@ -533,65 +573,19 @@ pub async fn download_and_install_java_with_provider(
         .await?;
     }
 
-    let _ = app_handle.emit(
-        "java-download-progress",
-        JavaDownloadProgress {
-            file_name: file_name.clone(),
-            downloaded_bytes: info.file_size,
-            total_bytes: info.file_size,
-            speed_bytes_per_sec: 0,
-            eta_seconds: 0,
-            status: "Extracting".to_string(),
-            percentage: 100.0,
-        },
-    );
+    // Install (either from an existing file or the freshly downloaded one)
+    let installation = install_from_archive(
+        app_handle,
+        &archive_path,
+        &info,
+        major_version,
+        image_type,
+        &install_base,
+        Some(provider_impl.clone()),
+    )
+    .await?;
 
-    if version_dir.exists() {
-        std::fs::remove_dir_all(&version_dir)
-            .map_err(|e| format!("Failed to remove old version directory: {}", e))?;
-    }
-
-    std::fs::create_dir_all(&version_dir)
-        .map_err(|e| format!("Failed to create version directory: {}", e))?;
-
-    let top_level_dir = if info.file_name.ends_with(".tar.gz") || info.file_name.ends_with(".tgz") {
-        zip::extract_tar_gz(&archive_path, &version_dir)?
-    } else if info.file_name.ends_with(".zip") {
-        zip::extract_zip(&archive_path, &version_dir)?;
-        find_top_level_dir(&version_dir)?
-    } else {
-        return Err(format!("Unsupported archive format: {}", info.file_name));
-    };
-
-    let _ = std::fs::remove_file(&archive_path);
-
-    let java_home = version_dir.join(&top_level_dir);
-    let java_bin = if cfg!(target_os = "macos") {
-        java_home
-            .join("Contents")
-            .join("Home")
-            .join("bin")
-            .join("java")
-    } else if cfg!(windows) {
-        java_home.join("bin").join("java.exe")
-    } else {
-        java_home.join("bin").join("java")
-    };
-
-    if !java_bin.exists() {
-        return Err(format!(
-            "Installation completed but Java executable not found: {}",
-            java_bin.display()
-        ));
-    }
-
-    let java_bin = std::fs::canonicalize(&java_bin).map_err(|e| e.to_string())?;
-    let java_bin = strip_unc_prefix(java_bin);
-
-    let installation = validation::check_java_installation(&java_bin)
-        .await
-        .ok_or_else(|| "Failed to verify Java installation".to_string())?;
-
+    // After successful install, remove the pending entry specific to this provider and persist
     queue.remove_with_provider(
         major_version,
         &image_type.to_string(),
@@ -633,6 +627,111 @@ fn resolve_provider_from_app(
 
     // Fallback to Adoptium directly
     Arc::new(AdoptiumProvider::new())
+}
+
+pub async fn install_from_archive(
+    app_handle: &AppHandle,
+    archive_path: &PathBuf,
+    info: &JavaDownloadInfo,
+    major_version: u32,
+    image_type: ImageType,
+    install_base: &PathBuf,
+    provider_impl: Option<Arc<dyn JavaProvider + Send + Sync>>,
+) -> Result<JavaInstallation, String> {
+    let file_name = info.file_name.clone();
+    let _ = app_handle.emit(
+        "java-download-progress",
+        JavaDownloadProgress {
+            file_name: file_name.clone(),
+            downloaded_bytes: info.file_size,
+            total_bytes: info.file_size,
+            speed_bytes_per_sec: 0,
+            eta_seconds: 0,
+            status: "Extracting".to_string(),
+            percentage: 100.0,
+        },
+    );
+
+    // Determine install prefix (fallback to Adoptium provider prefix)
+    let prefix = if let Some(p) = provider_impl.as_ref() {
+        p.install_prefix()
+    } else {
+        AdoptiumProvider::new().install_prefix()
+    };
+
+    let version_dir = install_base.join(format!("{}-{}-{}", prefix, major_version, image_type));
+
+    if version_dir.exists() {
+        std::fs::remove_dir_all(&version_dir)
+            .map_err(|e| format!("Failed to remove old version directory: {}", e))?;
+    }
+
+    std::fs::create_dir_all(&version_dir)
+        .map_err(|e| format!("Failed to create version directory: {}", e))?;
+
+    // Extract archive and locate java executable (delegated to helper)
+    let (_top_level_dir, java_bin) =
+        extract_archive_and_find_java_bin(&archive_path, &version_dir, &info.file_name)?;
+    let _ = std::fs::remove_file(&archive_path);
+
+    if !java_bin.exists() {
+        return Err(format!(
+            "Installation completed but Java executable not found: {}",
+            java_bin.display()
+        ));
+    }
+
+    let java_bin = std::fs::canonicalize(&java_bin).map_err(|e| e.to_string())?;
+    let java_bin = strip_unc_prefix(java_bin);
+
+    let installation = validation::check_java_installation(&java_bin)
+        .await
+        .ok_or_else(|| "Failed to verify Java installation".to_string())?;
+
+    let _ = app_handle.emit(
+        "java-download-progress",
+        JavaDownloadProgress {
+            file_name,
+            downloaded_bytes: info.file_size,
+            total_bytes: info.file_size,
+            speed_bytes_per_sec: 0,
+            eta_seconds: 0,
+            status: "Completed".to_string(),
+            percentage: 100.0,
+        },
+    );
+
+    Ok(installation)
+}
+
+fn extract_archive_and_find_java_bin(
+    archive_path: &PathBuf,
+    version_dir: &PathBuf,
+    file_name: &str,
+) -> Result<(String, PathBuf), String> {
+    let top_level_dir = if file_name.ends_with(".tar.gz") || file_name.ends_with(".tgz") {
+        zip::extract_tar_gz(archive_path, version_dir)?
+    } else if file_name.ends_with(".zip") {
+        zip::extract_zip(archive_path, version_dir)?;
+        find_top_level_dir(version_dir)?
+    } else {
+        return Err(format!("Unsupported archive format: {}", file_name));
+    };
+
+    let java_home = version_dir.join(&top_level_dir);
+    let java_bin = if cfg!(target_os = "macos") {
+        java_home
+            .join("Contents")
+            .join("Home")
+            .join("bin")
+            .join("java")
+    } else if cfg!(windows) {
+        java_home.join("bin").join("java.exe")
+    } else {
+        java_home.join("bin").join("java")
+    };
+
+    Ok((top_level_dir, java_bin))
 }
 
 fn find_top_level_dir(extract_dir: &PathBuf) -> Result<String, String> {
@@ -714,7 +813,7 @@ pub async fn is_java_compatible(
 }
 
 pub async fn detect_all_java_installations(app_handle: &AppHandle) -> Vec<JavaInstallation> {
-    let mut installations = detect_java_installations().await;
+    let mut installations: Vec<JavaInstallation> = detect_java_installations().await;
 
     let dropout_java_dir = get_java_install_dir(app_handle);
     if dropout_java_dir.exists() {
@@ -792,32 +891,165 @@ fn find_java_executable(dir: &PathBuf) -> Option<PathBuf> {
 pub async fn resume_pending_downloads(
     app_handle: &AppHandle,
 ) -> Result<Vec<JavaInstallation>, String> {
-    let queue = DownloadQueue::load(app_handle);
     let mut installed = Vec::new();
 
-    for pending in queue.pending_downloads.iter() {
+    // Work on a snapshot of pending downloads to allow modifying the persisted queue during iteration
+    let pendings = {
+        let q = DownloadQueue::load(app_handle);
+        q.pending_downloads.clone()
+    };
+
+    for pending in pendings.iter() {
         let image_type = if pending.image_type == "jdk" {
             ImageType::Jdk
         } else {
             ImageType::Jre
         };
 
-        match download_and_install_java(
-            app_handle,
-            pending.major_version,
-            image_type,
-            Some(PathBuf::from(&pending.install_path)),
-        )
-        .await
-        {
-            Ok(installation) => {
-                installed.push(installation);
+        // Try to resolve provider by recorded provider_name (exact match in registry)
+        let provider_opt = if let Some(reg) = app_handle.try_state::<ProviderRegistry>() {
+            pending
+                .provider_name
+                .as_deref()
+                .and_then(|name| reg.get(name))
+        } else {
+            None
+        };
+
+        let archive_path = PathBuf::from(&pending.install_path).join(&pending.file_name);
+
+        // If an archive file already exists, attempt to install directly from it
+        if archive_path.exists() {
+            let info = JavaDownloadInfo {
+                version: "".to_string(),
+                release_name: "".to_string(),
+                download_url: pending.download_url.clone(),
+                file_name: pending.file_name.clone(),
+                file_size: pending.file_size,
+                checksum: pending.checksum.clone(),
+                image_type: pending.image_type.clone(),
+            };
+
+            match install_from_archive(
+                app_handle,
+                &archive_path,
+                &info,
+                pending.major_version,
+                image_type,
+                &PathBuf::from(&pending.install_path),
+                provider_opt.clone(),
+            )
+            .await
+            {
+                Ok(inst) => {
+                    installed.push(inst);
+                    let mut q = DownloadQueue::load(app_handle);
+                    q.remove_with_provider(
+                        pending.major_version,
+                        &pending.image_type,
+                        pending.provider_name.as_deref(),
+                    );
+                    let _ = q.save(app_handle);
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Failed to install Java from existing archive {} {}: {}",
+                        pending.major_version, pending.image_type, e
+                    );
+                    continue;
+                }
             }
-            Err(e) => {
+        }
+
+        // If no archive exists, try to resume download using stored download_url
+        if !pending.download_url.is_empty() {
+            if let Err(e) = crate::core::downloader::download_with_resume(
+                app_handle,
+                &pending.download_url,
+                &archive_path,
+                pending.checksum.as_deref(),
+                pending.file_size,
+            )
+            .await
+            {
                 eprintln!(
-                    "Failed to resume Java {} {} download: {}",
+                    "Failed to resume download for Java {} {}: {}",
                     pending.major_version, pending.image_type, e
                 );
+                continue;
+            }
+
+            // Attempt to install after successful (re-)download
+            let info = JavaDownloadInfo {
+                version: "".to_string(),
+                release_name: "".to_string(),
+                download_url: pending.download_url.clone(),
+                file_name: pending.file_name.clone(),
+                file_size: pending.file_size,
+                checksum: pending.checksum.clone(),
+                image_type: pending.image_type.clone(),
+            };
+
+            match install_from_archive(
+                app_handle,
+                &archive_path,
+                &info,
+                pending.major_version,
+                image_type,
+                &PathBuf::from(&pending.install_path),
+                provider_opt.clone(),
+            )
+            .await
+            {
+                Ok(inst) => {
+                    installed.push(inst);
+                    let mut q = DownloadQueue::load(app_handle);
+                    q.remove_with_provider(
+                        pending.major_version,
+                        &pending.image_type,
+                        pending.provider_name.as_deref(),
+                    );
+                    let _ = q.save(app_handle);
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Failed to install Java after resumed download {} {}: {}",
+                        pending.major_version, pending.image_type, e
+                    );
+                    continue;
+                }
+            }
+        } else {
+            // No download URL available: fallback to default provider installer
+            match download_and_install_java_with_provider(
+                app_handle,
+                pending.major_version,
+                image_type,
+                Some(PathBuf::from(&pending.install_path)),
+                None,
+            )
+            .await
+            {
+                Ok(inst) => {
+                    installed.push(inst);
+                    let mut q = DownloadQueue::load(app_handle);
+                    q.remove_with_provider(
+                        pending.major_version,
+                        &pending.image_type,
+                        pending.provider_name.as_deref(),
+                    );
+                    let _ = q.save(app_handle);
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!(
+                        "No download URL and fallback failed for Java {} {}: {}",
+                        pending.major_version, pending.image_type, e
+                    );
+                    continue;
+                }
             }
         }
     }
