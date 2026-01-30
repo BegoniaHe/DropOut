@@ -11,6 +11,7 @@ pub mod providers;
 pub mod validation;
 
 pub use error::JavaError;
+use ts_rs::TS;
 
 /// Remove the UNC prefix (\\?\) from Windows paths
 pub fn strip_unc_prefix(path: PathBuf) -> PathBuf {
@@ -31,7 +32,11 @@ use providers::AdoptiumProvider;
 
 const CACHE_DURATION_SECS: u64 = 24 * 60 * 60;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/index.ts"
+)]
 pub struct JavaInstallation {
     pub path: String,
     pub version: String,
@@ -63,7 +68,11 @@ impl std::fmt::Display for ImageType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/index.ts"
+)]
 pub struct JavaReleaseInfo {
     pub major_version: u32,
     pub image_type: String,
@@ -78,7 +87,11 @@ pub struct JavaReleaseInfo {
     pub architecture: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/index.ts"
+)]
 pub struct JavaCatalog {
     pub releases: Vec<JavaReleaseInfo>,
     pub available_major_versions: Vec<u32>,
@@ -86,7 +99,11 @@ pub struct JavaCatalog {
     pub cached_at: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(
+    export,
+    export_to = "../../packages/ui-new/src/types/bindings/java/index.ts"
+)]
 pub struct JavaDownloadInfo {
     pub version: String,          // e.g., "17.0.2+8"
     pub release_name: String,     // e.g., "jdk-17.0.2+8"
