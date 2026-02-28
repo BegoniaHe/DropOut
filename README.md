@@ -14,7 +14,7 @@ English | [中文](README.CN.md)
 DropOut is a modern, reproducible, and developer-grade Minecraft launcher.
 It is designed not just to launch Minecraft, but to manage Minecraft environments as deterministic, versioned workspaces.
 
-Built with Tauri v2 and Rust, DropOut delivers native performance and minimal resource usage, paired with a modern reactive web UI.
+Built with Tauri v2, DropOut delivers native performance and minimal resource usage, paired with a modern reactive web UI built with React 19, shadcn/ui, and Tailwind CSS 4.
 
 > Minecraft environments are complex systems.
 > DropOut treats them like software projects.
@@ -42,7 +42,7 @@ This launcher is built for players who value control, transparency, and long-ter
 ## Features
 
 - **High Performance**: Built with Rust and Tauri for minimal resource usage and fast startup times.
-- **Modern Industrial UI**: A clean, distraction-free interface designed with **React** and **Tailwind CSS 4**.
+- **Modern Industrial UI**: A clean, distraction-free interface designed with **React 19**, **shadcn/ui**, and **Tailwind CSS 4**.
 - **Microsoft Authentication**: Secure login support via official Xbox Live & Microsoft OAuth flows (Device Code Flow).
 - **Mod Loader Support**:
   - **Fabric**: Built-in installer and version management.
@@ -103,12 +103,10 @@ Download the latest release for your platform from the [Releases](https://github
    cd DropOut
    ```
 
-1. **Install Frontend Dependencies**
+2. **Install Dependencies**
 
    ```bash
-   cd ui
    pnpm install
-   cd ..
    ```
 
 1. **Run in Development Mode**

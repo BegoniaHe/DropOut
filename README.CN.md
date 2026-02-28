@@ -14,7 +14,7 @@
 DropOut 是一个现代的、可复现的、开发者级别的 Minecraft 启动器。
 它不仅仅是为了启动 Minecraft 而设计的，而是将 Minecraft 环境作为确定性的、版本化的工作空间进行管理。
 
-DropOut 使用 Tauri v2 构建，DropOut 提供原生性能和最小资源使用，并配有现代响应式 Web UI。
+DropOut 使用 Tauri v2 构建，DropOut 提供原生性能和最小资源使用，并配有现代响应式 Web UI（基于 React 19、shadcn/ui 和 Tailwind CSS 4 构建）。
 
 > Minecraft 环境是一个复杂的系统。
 > DropOut 将它们视为软件项目。
@@ -42,7 +42,7 @@ DropOut 专注于保持你的游戏稳定、可调试和可重现。
 ## 功能特性
 
 - **高性能**：使用 Rust 和 Tauri 构建，实现最小资源使用和快速启动时间。
-- **现代工业 UI**：使用 **React** 和 **Tailwind CSS 4** 设计的干净、无干扰界面。
+- **现代工业 UI**：使用 **React 19**、**shadcn/ui** 和 **Tailwind CSS 4** 设计的干净、无干扰界面。
 - **Microsoft 认证**：通过官方 Xbox Live 和 Microsoft OAuth 流程（设备代码流程）提供安全登录支持。
 - **模组加载器支持**：
   - **Fabric**：内置安装程序和版本管理。
@@ -101,12 +101,10 @@ DropOut 专注于保持你的游戏稳定、可调试和可重现。
    cd DropOut
    ```
 
-1. **安装前端依赖**
+2. **安装依赖**
 
    ```bash
-   cd ui
    pnpm install
-   cd ..
    ```
 
 1. **运行开发模式**
