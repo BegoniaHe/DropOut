@@ -1,6 +1,7 @@
 import { toNumber } from "es-toolkit/compat";
 import { FileJsonIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { migrateSharedCaches } from "@/client";
 import { ConfigEditor } from "@/components/config-editor";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,11 @@ import {
   FieldLabel,
   FieldLegend,
   FieldSet,
+  FieldTitle,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -28,18 +31,40 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useJavaStore } from "@/models/java";
 import { useSettingsStore } from "@/models/settings";
 
 export type SettingsTab = "general" | "appearance" | "advanced";
 
 export function SettingsPage() {
   const { config, ...settings } = useSettingsStore();
+  const javaStore = useJavaStore();
   const [showConfigEditor, setShowConfigEditor] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
   useEffect(() => {
-    if (!config) settings.refresh();
-  }, [config, settings.refresh]);
+    const refresh = async () => {
+      try {
+        await settings.refresh();
+      } catch (error) {
+        console.error(error);
+        toast.error(`Failed to refresh settings: ${error}`);
+      }
+      try {
+        await javaStore.refreshInstallations();
+        if (!javaStore.catalog) await javaStore.refresh();
+      } catch (error) {
+        console.error(error);
+        toast.error(`Failed to refresh java catalogs: ${error}`);
+      }
+    };
+    refresh();
+  }, [
+    settings.refresh,
+    javaStore.refresh,
+    javaStore.refreshInstallations,
+    javaStore.catalog,
+  ]);
 
   const renderScrollArea = () => {
     if (!config) {
@@ -158,7 +183,66 @@ export function SettingsPage() {
               <CardTitle className="font-bold text-xl">
                 Java Installations
               </CardTitle>
-              <CardContent></CardContent>
+              <CardContent>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="java-path">Java Path</FieldLabel>
+                    <Input
+                      type="text"
+                      name="java-path"
+                      value={config?.javaPath}
+                      onChange={(e) => {
+                        settings.merge({
+                          javaPath: e.target.value,
+                        });
+                      }}
+                      onBlur={() => {
+                        settings.save();
+                      }}
+                    />
+                  </Field>
+                  <FieldSet>
+                    <FieldLegend>Java Installations</FieldLegend>
+                    {javaStore.installations ? (
+                      <RadioGroup
+                        value={config.javaPath}
+                        onValueChange={(value) => {
+                          settings.merge({
+                            javaPath: value,
+                          });
+                          settings.save();
+                        }}
+                      >
+                        {javaStore.installations?.map((installation) => (
+                          <FieldLabel
+                            key={installation.path}
+                            htmlFor={installation.path}
+                          >
+                            <Field orientation="horizontal">
+                              <FieldContent>
+                                <FieldTitle>
+                                  {installation.vendor} ({installation.version})
+                                </FieldTitle>
+                                <FieldDescription>
+                                  {installation.path}
+                                </FieldDescription>
+                              </FieldContent>
+                              <RadioGroupItem
+                                value={installation.path}
+                                id={installation.path}
+                              />
+                            </Field>
+                          </FieldLabel>
+                        ))}
+                      </RadioGroup>
+                    ) : (
+                      <div className="flex justify-center items-center h-30">
+                        <Spinner />
+                      </div>
+                    )}
+                  </FieldSet>
+                </FieldGroup>
+              </CardContent>
             </CardHeader>
           </Card>
         </TabsContent>

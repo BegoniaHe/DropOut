@@ -6,7 +6,6 @@ import { listInstalledVersions, startGame } from "@/client";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/models/auth";
 import { useInstanceStore } from "@/models/instance";
-import { useGameStore } from "@/stores/game-store";
 import { LoginModal } from "./login-modal";
 import { Button } from "./ui/button";
 import {
@@ -26,7 +25,6 @@ interface InstalledVersion {
 
 export function BottomBar() {
   const authStore = useAuthStore();
-  const gameStore = useGameStore();
   const instancesStore = useInstanceStore();
 
   const [isLaunched, setIsLaunched] = useState<boolean>(false);
@@ -51,24 +49,18 @@ export function BottomBar() {
       const versions = await listInstalledVersions(
         instancesStore.activeInstance.id,
       );
-
-      const installed = versions || [];
-      setInstalledVersions(installed);
+      setInstalledVersions(versions);
 
       // If no version is selected but we have installed versions, select the first one
-      if (!gameStore.selectedVersion && installed.length > 0) {
-        gameStore.setSelectedVersion(installed[0].id);
+      if (!selectedVersion && versions.length > 0) {
+        setSelectedVersion(versions[0].id);
       }
     } catch (error) {
       console.error("Failed to load installed versions:", error);
     } finally {
       setIsLoadingVersions(false);
     }
-  }, [
-    instancesStore.activeInstance,
-    gameStore.selectedVersion,
-    gameStore.setSelectedVersion,
-  ]);
+  }, [instancesStore.activeInstance, selectedVersion]);
 
   useEffect(() => {
     loadInstalledVersions();
@@ -225,6 +217,7 @@ export function BottomBar() {
             </div>
 
             <Select
+              value={selectedVersion}
               items={versionOptions}
               onValueChange={setSelectedVersion}
               disabled={isLoadingVersions}
@@ -238,7 +231,7 @@ export function BottomBar() {
                   }
                 />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent alignItemWithTrigger={false}>
                 <SelectGroup>
                   {versionOptions.map((item) => (
                     <SelectItem
