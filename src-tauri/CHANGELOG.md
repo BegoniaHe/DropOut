@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.2.0-alpha.5
+
+### New Features
+
+- [`0ac743f`](https://github.com/HydroRoll-Team/DropOut/commit/0ac743f6d126d047352e6b247ea1ee513361d240): Improve sidebar avatar on large and small screens.
+- [`9e40b5b`](https://github.com/HydroRoll-Team/DropOut/commit/9e40b5b7bea60e6802a4b448ef315b14fba4de7f): Support detect and select java path.
+- [`47aeabf`](https://github.com/HydroRoll-Team/DropOut/commit/47aeabf5d44d7483101d30d289cb4c56761e3faa): Improve position and colors of the UI toast.
+
+### Chores
+
+- [`8a4133c`](https://github.com/HydroRoll-Team/DropOut/commit/8a4133c9c517556cd16c2bbc1cd20bf4ee8f52f0): Update README file
+- [`0ffa00e`](https://github.com/HydroRoll-Team/DropOut/commit/0ffa00eb79f06d877c74925b3da4abb0e25370ec): Remove unnecessary vsc extension svelte
+
+### Refactors
+
+- [`24a229e`](https://github.com/HydroRoll-Team/DropOut/commit/24a229ede321e8296ea99b332ccfa61213791d10): Partial rewrite layout of instances page.
+
+### Bug Fixes
+
+- [`47aeabf`](https://github.com/HydroRoll-Team/DropOut/commit/47aeabf5d44d7483101d30d289cb4c56761e3faa): Fix logo on Linux and MacOS.
+- [`9e40b5b`](https://github.com/HydroRoll-Team/DropOut/commit/9e40b5b7bea60e6802a4b448ef315b14fba4de7f): Auto select game version if version is unique.
+
 ## v0.2.0-alpha.4
 
 ### Chores
